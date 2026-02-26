@@ -4,7 +4,7 @@
  * mneme CLI — Three-layer memory architecture for AI coding agents.
  *
  * Unified entry point that routes to:
- *   1. mneme's own commands (init, doctor, status, compact, facts, propose, review, auto)
+ *   1. mneme's own commands (init, doctor, status, compact, facts, propose, review, auto, server)
  *   2. opencode commands (run, web, serve, etc.) — default fallback
  *   3. bd/beads commands (ready, list, create, close, etc.)
  *
@@ -56,6 +56,7 @@ const MNEME_COMMANDS = new Set([
   "propose",
   "review",
   "auto",
+  "server",
   "version",
   "--version",
   "-v",
@@ -118,6 +119,11 @@ switch (command) {
     await auto(args.slice(1));
     break;
   }
+  case "server": {
+    const { server } = await import("../src/commands/server.mjs");
+    await server(args.slice(1));
+    break;
+  }
   case "version":
   case "--version":
   case "-v":
@@ -145,6 +151,12 @@ Usage:
   mneme doctor                  Check dependencies and project health
   mneme status                  Show three-layer memory dashboard
   mneme compact                 Pre-compaction persistence check
+
+  ${bold("Dolt server:")}
+  mneme server start            Start the dolt server
+  mneme server stop             Stop the dolt server
+  mneme server status           Show server status (port, PID, data-dir)
+  mneme server restart          Restart the dolt server
 
   ${bold("Task management (beads):")}
   mneme ready                   Show tasks with no blockers

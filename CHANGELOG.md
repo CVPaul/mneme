@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.6
+
+- Add `mneme server` command with `start`, `stop`, `status`, `restart` subcommands for managing the dolt SQL server
+- Extract shared dolt utilities into `src/dolt.mjs` (port check, process detection, start/stop) — eliminates duplication between `init` and `server`
+- `mneme server status` shows port, PID, and data-dir with mismatch warnings
+
 ## v0.1.5
 
 - Fix dolt server detection in `mneme init`: replace `bd list` probe with TCP port check (`/dev/tcp`), preventing false-negative when initializing a new project where `bd list` always fails
