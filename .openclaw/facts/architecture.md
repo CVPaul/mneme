@@ -58,7 +58,6 @@ Session 启动:
 Compaction 前:
   OpenCode ── bd update --notes ──→ Beads (持久化已确认结论)
   OpenCode ──提议──→ 新的长期事实 → OpenClaw (需人工确认)
-  OpenCode ── bd export ──→ 导出数据到 JSONL
 ```
 
 ## 目录结构
@@ -75,8 +74,8 @@ mneme/
 │       ├── performance_rules.md # 性能相关规则
 │       └── pitfalls.md          # 已知陷阱与教训
 ├── .beads/                      # Beads 数据（由 bd init 管理）
-│   ├── beads.db                 # Dolt 数据库
-│   └── issues.jsonl             # 导出的 JSONL 快照
+│   ├── config.yaml              # Beads 配置
+│   └── dolt/                    # Dolt 数据库目录
 └── .opencode/
     └── prompt.md                # OpenCode session 启动 prompt
 ```

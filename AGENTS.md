@@ -128,10 +128,7 @@
    - 若当前 bead 已完成，关闭它：`bd close <id> --reason="完成说明"`
    - 若未完成，确保 `notes` 中记录了当前进度和卡点
 
-4. **导出数据**
-   - 执行 `bd export` 确保数据持久化到 JSONL
-
-5. **允许 compaction**
+4. **允许 compaction**
 
 > 原则：**可以丢失推理过程，但不能丢失状态与事实**
 
@@ -248,7 +245,6 @@ bd close <id1> <id2> ...           # Close multiple at once
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd export
    git push
    git status  # MUST show "up to date with origin"
    ```
