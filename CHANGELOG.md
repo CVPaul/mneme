@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.13
+
+- **Fix: process hangs after completion** — SSE event streams were not properly closed when the supervisor loop finished, preventing Node.js from exiting
+  - Added `AbortController` support to SSE `subscribeEvents()` in opencode-client
+  - Both `createEventDisplay` (headless) and `createDaemonEventMonitor` (daemon) now abort their SSE fetch on `stop()`
+  - `AbortError` is silently ignored (not treated as a reconnect-worthy error)
+  - Headless mode explicitly calls `process.exit(0)` after cleanup as a safety net
+
 ## v0.1.12
 
 - **Goal discussion feature** — when `mneme auto` is run without a goal:

@@ -516,6 +516,7 @@ function createEventDisplay(client) {
   let currentRole = null;
   let lastOutputTime = 0;
   let hasReceivedAny = false;
+  let abortController = null;
 
   const printedTextLengths = new Map();
   const displayedToolStates = new Map();
@@ -523,8 +524,9 @@ function createEventDisplay(client) {
 
   async function start() {
     running = true;
+    abortController = new AbortController();
     try {
-      const iterator = await client.events.subscribe();
+      const iterator = await client.events.subscribe({ signal: abortController.signal });
       connected = true;
       hasReceivedAny = false;
       log.ok("SSE event stream connected");
@@ -535,7 +537,7 @@ function createEventDisplay(client) {
       }
     } catch (err) {
       connected = false;
-      if (running) {
+      if (running && err.name !== "AbortError") {
         console.error(
           color.dim(`\n  [events] Stream error: ${err.message}`),
         );
@@ -687,6 +689,10 @@ function createEventDisplay(client) {
 
   function stop() {
     running = false;
+    if (abortController) {
+      abortController.abort();
+      abortController = null;
+    }
     if (turnResolve) {
       turnResolve("stopped");
       turnResolve = null;
@@ -717,6 +723,7 @@ function createDaemonEventMonitor(client, dlog) {
   let turnResolve = null;
   let lastOutputTime = 0;
   let hasReceivedAny = false;
+  let abortController = null;
 
   // Track known prompt texts we sent — to distinguish user messages
   const knownPromptTexts = new Set();
@@ -726,8 +733,9 @@ function createDaemonEventMonitor(client, dlog) {
 
   async function start() {
     running = true;
+    abortController = new AbortController();
     try {
-      const iterator = await client.events.subscribe();
+      const iterator = await client.events.subscribe({ signal: abortController.signal });
       connected = true;
       hasReceivedAny = false;
       dlog.ok("SSE event stream connected (daemon)");
@@ -738,7 +746,7 @@ function createDaemonEventMonitor(client, dlog) {
       }
     } catch (err) {
       connected = false;
-      if (running) {
+      if (running && err.name !== "AbortError") {
         dlog.warn(`SSE stream error: ${err.message}`);
         await sleep(2000);
         if (running) {
@@ -835,6 +843,10 @@ function createDaemonEventMonitor(client, dlog) {
 
   function stop() {
     running = false;
+    if (abortController) {
+      abortController.abort();
+      abortController = null;
+    }
     if (turnResolve) {
       turnResolve("stopped");
       turnResolve = null;
@@ -1892,6 +1904,7 @@ async function runHeadlessMode(opts) {
       serverCtx.serverProcess.kill("SIGTERM");
     }
     log.ok("mneme auto finished.");
+    process.exit(0);
   }
 }
 

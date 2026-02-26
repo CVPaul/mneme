@@ -37,12 +37,16 @@ export function createClient(baseUrl) {
   /**
    * Subscribe to SSE event stream.
    * Returns an async iterator of parsed events: { type, properties }.
+   * @param {string} path
+   * @param {{ signal?: AbortSignal }} [opts]
    */
-  async function* subscribeEvents(path = "/event") {
+  async function* subscribeEvents(path = "/event", opts = {}) {
     const url = `${base}${path}`;
-    const res = await fetch(url, {
+    const fetchOpts = {
       headers: { Accept: "text/event-stream" },
-    });
+    };
+    if (opts.signal) fetchOpts.signal = opts.signal;
+    const res = await fetch(url, fetchOpts);
     if (!res.ok) {
       throw new Error(`SSE connect failed: ${res.status}`);
     }
@@ -126,8 +130,8 @@ export function createClient(baseUrl) {
 
     /** Events */
     events: {
-      subscribe: () => subscribeEvents("/event"),
-      subscribeGlobal: () => subscribeEvents("/global/event"),
+      subscribe: (opts) => subscribeEvents("/event", opts),
+      subscribeGlobal: (opts) => subscribeEvents("/global/event", opts),
     },
 
     /** Raw request for anything else */
