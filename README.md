@@ -32,6 +32,10 @@ mneme
 mneme              # 启动 opencode TUI（等同于 mneme start）
 mneme init         # 初始化当前目录
 mneme doctor       # 检查依赖和项目健康状态
+mneme status       # 三层记忆状态总览
+mneme compact      # 压缩前持久化检查
+mneme facts        # 查看 OpenClaw 事实文件
+mneme facts --stats # 查看事实文件统计（行数/预算）
 mneme version      # 打印版本号
 
 # opencode 命令透传

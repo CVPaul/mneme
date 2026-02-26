@@ -107,6 +107,21 @@ function installGit() {
   return has("git");
 }
 
+function checkOpencode() {
+  if (has("opencode")) {
+    const ver = run("opencode --version 2>/dev/null | head -1") ?? "";
+    log.ok(`opencode ${color.dim(ver)}`);
+    return true;
+  }
+
+  log.warn(
+    "opencode not installed — mneme wraps opencode for the AI agent experience",
+  );
+  log.info("  Install: https://opencode.ai");
+  log.info('  After installing, run `mneme` to start or `mneme doctor` to verify');
+  return false;
+}
+
 function installDolt() {
   if (has("dolt")) {
     const ver = run("dolt version") ?? "";
@@ -290,6 +305,7 @@ ${color.bold("mneme init")} — Three-layer memory architecture for AI agents
     log.fail("git is required. Aborting.");
     process.exit(1);
   }
+  checkOpencode();
   const doltOk = installDolt();
   const bdOk = installBd();
 

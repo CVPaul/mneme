@@ -9,6 +9,9 @@
  *   mneme              Start opencode (same as `mneme start`)
  *   mneme init         Initialize mneme in the current directory
  *   mneme doctor       Check dependencies and project health
+ *   mneme status       Show three-layer memory dashboard
+ *   mneme compact      Pre-compaction persistence check
+ *   mneme facts        View OpenClaw facts
  *   mneme start        Start opencode TUI
  *   mneme run [msg..]  Run opencode with a message (non-interactive)
  *   mneme <opencode-subcommand> [args..]   Pass through to opencode
@@ -28,10 +31,13 @@ const pkg = JSON.parse(
 const args = process.argv.slice(2);
 const [command] = args;
 
-// mneme's own commands
+// mneme's own commands (not passed through to opencode)
 const MNEME_COMMANDS = new Set([
   "init",
   "doctor",
+  "status",
+  "compact",
+  "facts",
   "version",
   "--version",
   "-v",
@@ -51,6 +57,21 @@ switch (command) {
     await doctor();
     break;
   }
+  case "status": {
+    const { status } = await import("../src/commands/status.mjs");
+    await status();
+    break;
+  }
+  case "compact": {
+    const { compact } = await import("../src/commands/compact.mjs");
+    await compact();
+    break;
+  }
+  case "facts": {
+    const { facts } = await import("../src/commands/facts.mjs");
+    await facts(args.slice(1));
+    break;
+  }
   case "version":
   case "--version":
   case "-v":
@@ -66,6 +87,9 @@ Usage:
   mneme                         Start opencode TUI
   mneme init                    Initialize mneme in the current directory
   mneme doctor                  Check dependencies and project health
+  mneme status                  Show three-layer memory dashboard
+  mneme compact                 Pre-compaction persistence check
+  mneme facts [name] [--stats]  View OpenClaw facts
   mneme version                 Print version
 
   mneme start                   Start opencode TUI (same as bare mneme)
