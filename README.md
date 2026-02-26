@@ -2,6 +2,8 @@
 
 **Three-layer memory architecture for AI coding agents.**
 
+mneme separates long-lived facts, persistent work state, and disposable execution context, allowing AI coding agents to survive context compaction without relying on vector memory or RAG.
+
 mneme gives coding agents (like [OpenCode](https://opencode.ai)) persistent memory across sessions. It separates long-term facts, task state, and short-term execution into three distinct layers — so agents stop forgetting decisions, losing progress, and repeating work.
 
 ## The problem
