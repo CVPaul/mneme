@@ -251,11 +251,37 @@ function ensureDoltServer() {
     mkdirSync(DOLT_DATA_DIR, { recursive: true });
   }
 
-  // Check if a dolt server is already running and reachable
-  const test = run("bd list --status=open 2>&1");
-  if (test !== null && !test.includes("unreachable") && !test.includes("connection refused")) {
-    log.ok(`dolt server already running ${color.dim(`(port ${DOLT_PORT})`)}`);
-    return true;
+  // Check if port is already in use (bash /dev/tcp returns 0 if open, 1 if refused)
+  const portInUse = run(`bash -c 'echo > /dev/tcp/127.0.0.1/${DOLT_PORT}' 2>&1`) !== null;
+
+  if (portInUse) {
+    // Port is occupied — check if it's our dolt server with the right data-dir
+    const psOutput = run(`ps aux 2>/dev/null`) ?? "";
+    const doltLines = psOutput.split("\n").filter((line) =>
+      line.includes("dolt") && line.includes("sql-server") && line.includes(`${DOLT_PORT}`)
+      && !line.includes("grep")
+    );
+    // Prefer the actual dolt binary process over a bash wrapper
+    const doltProc = doltLines.find((l) => !l.includes("bash -c") && /\bdolt\s+sql-server\b/.test(l)) || doltLines[0];
+
+    if (doltProc && doltProc.includes(DOLT_DATA_DIR)) {
+      // Same data-dir, already running — nothing to do
+      log.ok(`dolt server already running ${color.dim(`(port ${DOLT_PORT}, data-dir ${DOLT_DATA_DIR})`)}`);
+      return true;
+    }
+
+    if (doltProc) {
+      // Dolt running but with a different data-dir — kill and restart
+      log.warn(`dolt server on port ${DOLT_PORT} uses a different data-dir, restarting...`);
+      // Extract PID from ps aux output (second column)
+      const pid = doltProc.trim().split(/\s+/)[1];
+      if (pid) run(`kill ${pid} 2>/dev/null`);
+      run("sleep 1");
+    } else {
+      // Port occupied by something else entirely
+      log.fail(`Port ${DOLT_PORT} is in use by a non-dolt process. Set MNEME_DOLT_PORT to use a different port.`);
+      return false;
+    }
   }
 
   log.info(`Starting dolt server (port ${DOLT_PORT}, data-dir ${DOLT_DATA_DIR})...`);
@@ -269,8 +295,8 @@ function ensureDoltServer() {
   // Wait for server to be ready (up to 10s)
   for (let i = 0; i < 10; i++) {
     run("sleep 1");
-    const check = run("bd list --status=open 2>&1");
-    if (check !== null && !check.includes("unreachable") && !check.includes("connection refused")) {
+    const alive = run(`bash -c 'echo > /dev/tcp/127.0.0.1/${DOLT_PORT}' 2>&1`) !== null;
+    if (alive) {
       log.ok(`dolt server started ${color.dim(`(port ${DOLT_PORT})`)}`);
       return true;
     }

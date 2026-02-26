@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.5
+
+- Fix dolt server detection in `mneme init`: replace `bd list` probe with TCP port check (`/dev/tcp`), preventing false-negative when initializing a new project where `bd list` always fails
+- Correctly identify running dolt processes by inspecting `ps aux` for data-dir match; kill and restart if data-dir mismatches, error with guidance if port is occupied by non-dolt process
+- Use PID extraction from `ps aux` instead of `lsof` (which may not be installed) for portable process management
+
 ## v0.1.4
 
 - Move English templates to `en/` subdirectory for consistent locale structure (`src/templates/en/`, `src/templates/cn/`)
