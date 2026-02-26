@@ -10,19 +10,19 @@ mneme 管理项目中 AI 编程 Agent 的行为规则。
 
 | 优先级 | 来源 | 示例 |
 |--------|------|------|
-| 1（最高） | **OpenClaw 事实** (`.openclaw/facts/`) | "数据库必须使用 PostgreSQL" |
+| 1（最高） | **Ledger 事实** (`.ledger/facts/`) | "数据库必须使用 PostgreSQL" |
 | 2 | **本文件** (AGENTS.md) | "不得跳过启动流程" |
 | 3 | **Beads 任务状态** (`mneme ready`, `mneme list`) | "认证模块正在开发中" |
 | 4 | **用户指令**（当前会话中） | "先聚焦认证模块" |
 | 5（最低） | **Agent 推理**和对话历史 | "我觉得应该用 SQLite" |
 
-如果 Agent 的推理与 OpenClaw 事实矛盾，以事实为准。如果 Agent 认为事实已过时，必须向用户提出矛盾，而非默默覆盖。
+如果 Agent 的推理与 Ledger 事实矛盾，以事实为准。如果 Agent 认为事实已过时，必须向用户提出矛盾，而非默默覆盖。
 
 ## Agent 允许做的事
 
 ### 读取所有三层数据
 
-- 会话开始时读取 `.openclaw/facts/` 中的所有文件
+- 会话开始时读取 `.ledger/facts/` 中的所有文件
 - 运行 `mneme ready` 和 `mneme list` 检查任务状态
 - 读取当前任务所需的任何项目文件
 
@@ -51,7 +51,7 @@ mneme 管理项目中 AI 编程 Agent 的行为规则。
 
 当上下文变长或达到里程碑时：
 - 将确认的结论写入 Beads：`mneme update <id> --notes="..."`
-- 将发现的事实提议给 OpenClaw
+- 将发现的事实提议给 Ledger
 - 关闭已完成的任务或更新笔记（记录当前进度和阻塞项）
 - 然后允许压缩继续
 
@@ -74,16 +74,16 @@ mneme 管理项目中 AI 编程 Agent 的行为规则。
 ### 不得跳过启动流程
 
 每次会话必须以以下步骤开始：
-1. 读取 `.openclaw/facts/`（所有文件）
+1. 读取 `.ledger/facts/`（所有文件）
 2. 运行 `mneme ready` 和 `mneme list --status=open`
 3. 选择一个任务作为会话焦点
 4. 开始工作
 
 跳过任何步骤都是禁止的。不要在读取事实和任务之前就开始写代码。
 
-### 不得直接修改 OpenClaw 事实
+### 不得直接修改 Ledger 事实
 
-- 不要编辑、删除或覆盖 `.openclaw/facts/` 中的文件
+- 不要编辑、删除或覆盖 `.ledger/facts/` 中的文件
 - 不要将未验证的假设、临时结论或推测性分析写入事实
 - 修改事实的唯一途径是 `mneme propose`，然后由人工 `mneme review --approve`
 
@@ -128,7 +128,7 @@ mneme 管理项目中 AI 编程 Agent 的行为规则。
 
 ```bash
 # 读取长期事实
-cat .openclaw/facts/*.md
+cat .ledger/facts/*.md
 
 # 检查可用工作
 mneme ready
@@ -185,7 +185,7 @@ git pull --rebase && git push
 新信息
   │
   ├─ 6 个月后还会需要吗？
-  │    ├─ 是 + 是事实/约束/教训  → 提议给 OpenClaw
+  │    ├─ 是 + 是事实/约束/教训  → 提议给 Ledger
   │    ├─ 是 + 是任务或进度更新 → 写入 Beads
   │    └─ 否 → 下次会话需要吗？
   │              ├─ 是 → 写入 Beads（笔记或新任务）
@@ -194,10 +194,10 @@ git pull --rebase && git push
 
 | 信息 | 层级 | 操作 |
 |------|------|------|
-| "这个项目使用事件溯源" | OpenClaw | `mneme propose --file=architecture` |
-| "调用支付 API 必须带幂等键" | OpenClaw | `mneme propose --file=invariants` |
-| "批量大小超过 1000 会导致 OOM" | OpenClaw | `mneme propose --file=performance_rules` |
-| "配置解析器会静默丢弃未知的键" | OpenClaw | `mneme propose --file=pitfalls` |
+| "这个项目使用事件溯源" | Ledger | `mneme propose --file=architecture` |
+| "调用支付 API 必须带幂等键" | Ledger | `mneme propose --file=invariants` |
+| "批量大小超过 1000 会导致 OOM" | Ledger | `mneme propose --file=performance_rules` |
+| "配置解析器会静默丢弃未知的键" | Ledger | `mneme propose --file=pitfalls` |
 | "需要给 API 添加限流" | Beads | `mneme create --title="添加 API 限流"` |
 | "限流：令牌桶已实现，需要写测试" | Beads | `mneme update <id> --notes="..."` |
 | "这个函数在第 47 行返回 null" | 上下文 | 不持久化 |
@@ -209,7 +209,7 @@ git pull --rebase && git push
 - [ ] 信息已被验证（不是假设或猜测）
 - [ ] 未来的会话会反复需要它（不是一次性的）
 - [ ] 不会很快过时（不是临时状态）
-- [ ] `.openclaw/facts/` 中不存在等价的事实
+- [ ] `.ledger/facts/` 中不存在等价的事实
 
 四个条件都满足才能提议，然后等待人工审批。
 

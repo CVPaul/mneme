@@ -10,17 +10,17 @@ When information conflicts, resolve it using this priority chain (highest first)
 
 | Priority | Source | Example |
 |----------|--------|---------|
-| 1 (highest) | **OpenClaw facts** (`.openclaw/facts/`) | "Database must use PostgreSQL" |
+| 1 (highest) | **Ledger facts** (`.ledger/facts/`) | "Database must use PostgreSQL" |
 | 2 | **This file** (AGENTS.md) | "Never skip the startup sequence" |
 | 3 | **Beads task state** (`mneme ready`, `mneme list`) | "Auth module is in progress" |
 | 4 | **User instructions** in the current session | "Focus on the auth module first" |
 | 5 (lowest) | **Agent reasoning** and conversation history | "I think we should use SQLite" |
 
-If an agent's reasoning contradicts an OpenClaw fact, the fact wins. If the agent believes the fact is outdated, it must raise the contradiction to the user rather than silently overriding it.
+If an agent's reasoning contradicts an Ledger fact, the fact wins. If the agent believes the fact is outdated, it must raise the contradiction to the user rather than silently overriding it.
 
 ## What agents are allowed to do
 
-- Read all files in `.openclaw/facts/` at session start
+- Read all files in `.ledger/facts/` at session start
 - Run `mneme ready` and `mneme list` to check task state
 - Claim tasks: `mneme update <id> --status=in_progress`
 - Record progress: `mneme update <id> --notes="what was done"`
@@ -33,7 +33,7 @@ If an agent's reasoning contradicts an OpenClaw fact, the fact wins. If the agen
 ## What agents must not do
 
 - Skip the startup sequence (read facts, check tasks, pick focus)
-- Edit files in `.openclaw/facts/` directly — only `mneme propose` + human `mneme review`
+- Edit files in `.ledger/facts/` directly — only `mneme propose` + human `mneme review`
 - Recover task state from conversation history — use `mneme list` / `mneme show`
 - Work on multiple unrelated tasks in one session
 - Create vague tasks with no verifiable completion condition

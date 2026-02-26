@@ -14,7 +14,7 @@
  *   mneme doctor       Check dependencies and project health
  *   mneme status       Show three-layer memory dashboard
  *   mneme compact      Pre-compaction persistence check
- *   mneme facts        View OpenClaw facts
+ *   mneme facts        View Ledger facts
  *   mneme ready        Show ready tasks (bd ready)
  *   mneme list         List tasks (bd list)
  *   mneme create       Create task (bd create)
@@ -132,7 +132,7 @@ mneme ${pkg.version} — Three-layer memory architecture for AI coding agents
 Usage:
   mneme                         Start opencode TUI
 
-  ${bold("Memory management (OpenClaw):")}
+  ${bold("Memory management (Ledger):")}
   mneme facts [name] [--stats]  View facts
   mneme propose --file=... --content=... --reason=...
                                 Propose a new fact (pending human review)
@@ -192,7 +192,7 @@ Quickstart:
  * If not, prompt user to run init.
  */
 async function ensureInitialized() {
-  if (existsSync(".openclaw/facts") && existsSync("AGENTS.md")) {
+  if (existsSync(".ledger/facts") && existsSync("AGENTS.md")) {
     return; // already initialized
   }
 

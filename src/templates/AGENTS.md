@@ -10,19 +10,19 @@ When information conflicts, resolve it using this priority chain (highest first)
 
 | Priority | Source | Example |
 |----------|--------|---------|
-| 1 (highest) | **OpenClaw facts** (`.openclaw/facts/`) | "Database must use PostgreSQL" |
+| 1 (highest) | **Ledger facts** (`.ledger/facts/`) | "Database must use PostgreSQL" |
 | 2 | **This file** (AGENTS.md) | "Never skip the startup sequence" |
 | 3 | **Beads task state** (`mneme ready`, `mneme list`) | "Auth module is in progress" |
 | 4 | **User instructions** in the current session | "Focus on the auth module first" |
 | 5 (lowest) | **Agent reasoning** and conversation history | "I think we should use SQLite" |
 
-If an agent's reasoning contradicts an OpenClaw fact, the fact wins. If the agent believes the fact is outdated, it must raise the contradiction to the user rather than silently overriding it.
+If an agent's reasoning contradicts an Ledger fact, the fact wins. If the agent believes the fact is outdated, it must raise the contradiction to the user rather than silently overriding it.
 
 ## What agents are allowed to do
 
 ### Read from all three layers
 
-- Read all files in `.openclaw/facts/` at session start
+- Read all files in `.ledger/facts/` at session start
 - Run `mneme ready` and `mneme list` to check task state
 - Read any project file needed for the current task
 
@@ -51,7 +51,7 @@ If an agent's reasoning contradicts an OpenClaw fact, the fact wins. If the agen
 
 When context is getting long or a milestone is reached:
 - Flush confirmed conclusions to Beads: `mneme update <id> --notes="..."`
-- Propose any discovered facts to OpenClaw
+- Propose any discovered facts to Ledger
 - Close completed tasks or update notes with current progress and blockers
 - Then allow compaction to proceed
 
@@ -74,16 +74,16 @@ Before ending a session:
 ### Never skip the startup sequence
 
 Every session must begin with:
-1. Read `.openclaw/facts/` (all files)
+1. Read `.ledger/facts/` (all files)
 2. Run `mneme ready` and `mneme list --status=open`
 3. Pick one task as the session focus
 4. Begin work
 
 Skipping any step is prohibited. Do not start coding before reading facts and tasks.
 
-### Never modify OpenClaw facts directly
+### Never modify Ledger facts directly
 
-- Do not edit, delete, or overwrite files in `.openclaw/facts/`
+- Do not edit, delete, or overwrite files in `.ledger/facts/`
 - Do not write unverified hypotheses, temporary conclusions, or speculative analysis to facts
 - The only path to changing facts is `mneme propose` followed by human `mneme review --approve`
 
@@ -128,7 +128,7 @@ Skipping any step is prohibited. Do not start coding before reading facts and ta
 
 ```bash
 # Read long-term facts
-cat .openclaw/facts/*.md
+cat .ledger/facts/*.md
 
 # Check available work
 mneme ready
@@ -185,7 +185,7 @@ When you encounter new information, classify it immediately:
 New information
   │
   ├─ Will this matter in 6 months?
-  │    ├─ Yes + it's a fact/constraint/lesson  → Propose to OpenClaw
+  │    ├─ Yes + it's a fact/constraint/lesson  → Propose to Ledger
   │    ├─ Yes + it's a task or progress update → Write to Beads
   │    └─ No  → Will the next session need it?
   │              ├─ Yes → Write to Beads (notes or new task)
@@ -194,10 +194,10 @@ New information
 
 | Information | Layer | Action |
 |---|---|---|
-| "This project uses event sourcing" | OpenClaw | `mneme propose --file=architecture` |
-| "Never call the payments API without idempotency keys" | OpenClaw | `mneme propose --file=invariants` |
-| "Batch size over 1000 causes OOM" | OpenClaw | `mneme propose --file=performance_rules` |
-| "The config parser silently drops unknown keys" | OpenClaw | `mneme propose --file=pitfalls` |
+| "This project uses event sourcing" | Ledger | `mneme propose --file=architecture` |
+| "Never call the payments API without idempotency keys" | Ledger | `mneme propose --file=invariants` |
+| "Batch size over 1000 causes OOM" | Ledger | `mneme propose --file=performance_rules` |
+| "The config parser silently drops unknown keys" | Ledger | `mneme propose --file=pitfalls` |
 | "Need to add rate limiting to the API" | Beads | `mneme create --title="Add API rate limiting"` |
 | "Rate limiting: token bucket implemented, need tests" | Beads | `mneme update <id> --notes="..."` |
 | "This function returns null on line 47" | Context | Don't persist |
@@ -209,7 +209,7 @@ Before proposing a fact, verify all four conditions:
 - [ ] The information has been verified (not a hypothesis or guess)
 - [ ] Future sessions will repeatedly need it (not one-time)
 - [ ] It won't become outdated quickly (not a temporary state)
-- [ ] No equivalent fact already exists in `.openclaw/facts/`
+- [ ] No equivalent fact already exists in `.ledger/facts/`
 
 All four must pass. Then propose and wait for human approval.
 

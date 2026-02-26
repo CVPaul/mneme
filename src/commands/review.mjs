@@ -1,5 +1,5 @@
 /**
- * mneme review — Review, approve, or reject OpenClaw fact proposals.
+ * mneme review — Review, approve, or reject Ledger fact proposals.
  *
  * Usage:
  *   mneme review                   List all pending proposals
@@ -19,8 +19,8 @@ import {
 import { join } from "node:path";
 import { log, color } from "../utils.mjs";
 
-const PROPOSALS_DIR = ".openclaw/proposals";
-const FACTS_DIR = ".openclaw/facts";
+const PROPOSALS_DIR = ".ledger/proposals";
+const FACTS_DIR = ".ledger/facts";
 
 /**
  * Load all proposals, optionally filtered by status.

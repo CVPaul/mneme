@@ -4,7 +4,7 @@
 
 1. **Re-analyzing already-confirmed conclusions**
    - Symptom: Agent re-analyzes architecture decisions in a new session, potentially overturning prior conclusions
-   - Cause: Did not read OpenClaw facts, or did not give them sufficient priority after reading
+   - Cause: Did not read Ledger facts, or did not give them sufficient priority after reading
    - Fix: Force facts reading at session start; make facts priority explicit in the prompt
 
 2. **Recovering state from conversation history**
@@ -19,10 +19,10 @@
 
 ## Information Management Pitfalls
 
-4. **Writing temporary conclusions to OpenClaw**
+4. **Writing temporary conclusions to Ledger**
    - Symptom: Unverified hypotheses get written to facts; future sessions treat them as confirmed
    - Cause: Blurred boundary between "speculation" and "fact"
-   - Fix: OpenClaw only accepts verified information; writing requires human approval
+   - Fix: Ledger only accepts verified information; writing requires human approval
 
 5. **Beads task granularity gets out of control**
    - Symptom: A single bead is too large (e.g. "complete the entire module"), making accurate progress tracking impossible
@@ -42,6 +42,6 @@
    - Fix: Periodically review facts files; mark outdated content for deletion or archiving
 
 8. **Duplicate information in Beads and facts**
-   - Symptom: The same information exists in both Beads notes and OpenClaw facts
+   - Symptom: The same information exists in both Beads notes and Ledger facts
    - Cause: Unclear boundary between "what to do" and "what is"
-   - Fix: Clear division — OpenClaw stores facts, Beads stores progress
+   - Fix: Clear division — Ledger stores facts, Beads stores progress

@@ -1,5 +1,5 @@
 /**
- * mneme facts — View and manage OpenClaw facts.
+ * mneme facts — View and manage Ledger facts.
  *
  * Usage:
  *   mneme facts            List all facts files with summaries
@@ -11,8 +11,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { log, color } from "../utils.mjs";
 
-const FACTS_DIR = ".openclaw/facts";
-const PROPOSALS_DIR = ".openclaw/proposals";
+const FACTS_DIR = ".ledger/facts";
+const PROPOSALS_DIR = ".ledger/proposals";
 const LINE_BUDGET_PER_FILE = 200;
 const LINE_BUDGET_TOTAL = 800;
 
@@ -22,7 +22,7 @@ const LINE_BUDGET_TOTAL = 800;
 function listFacts(showStats) {
   if (!existsSync(FACTS_DIR)) {
     log.fail(
-      ".openclaw/facts/ not found — run `mneme init` to create it.",
+      ".ledger/facts/ not found — run `mneme init` to create it.",
     );
     process.exit(1);
   }
@@ -38,7 +38,7 @@ function listFacts(showStats) {
 
   let totalLines = 0;
 
-  console.log(color.bold("\nOpenClaw Facts"));
+  console.log(color.bold("\nLedger Facts"));
   console.log(color.dim("──────────────────────────────────────────"));
 
   for (const file of files) {

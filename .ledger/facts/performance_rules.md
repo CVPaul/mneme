@@ -3,7 +3,7 @@
 ## Context Management Efficiency
 
 1. **Minimize session startup overhead**
-   - OpenClaw facts files should stay concise; total size should remain manageable
+   - Ledger facts files should stay concise; total size should remain manageable
    - Each facts file should be no more than 200 lines
    - Total across all facts files should be no more than 800 lines
    - Goal: token cost of reading all facts at session start stays under control
@@ -34,10 +34,10 @@
 
 6. **Reduce unnecessary cross-layer reads and writes**
    - Do not refresh Beads after every operation (batch updates over frequent updates)
-   - OpenClaw is read once at session start — no repeated reads
+   - Ledger is read once at session start — no repeated reads
    - Only update Beads status when there is substantive progress
 
 7. **Avoid duplicate information storage**
-   - The same piece of information should not appear in both OpenClaw and Beads
-   - OpenClaw stores "what is" — Beads stores "what to do / how far along"
-   - If a conclusion appears repeatedly in Beads notes, consider promoting it to an OpenClaw fact
+   - The same piece of information should not appear in both Ledger and Beads
+   - Ledger stores "what is" — Beads stores "what to do / how far along"
+   - If a conclusion appears repeatedly in Beads notes, consider promoting it to an Ledger fact

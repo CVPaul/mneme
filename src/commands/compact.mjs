@@ -101,16 +101,16 @@ export async function compact() {
     }
   }
 
-  // Check 4: OpenClaw facts
-  console.log(`\n${color.bold("OpenClaw state:")}`);
-  if (existsSync(".openclaw/facts/")) {
+  // Check 4: Ledger facts
+  console.log(`\n${color.bold("Ledger state:")}`);
+  if (existsSync(".ledger/facts/")) {
     log.ok("Facts directory exists");
     log.info(
       "Review: any new long-term facts discovered this session? Propose with human confirmation.",
     );
     passes++;
   } else {
-    log.warn("No .openclaw/facts/ directory");
+    log.warn("No .ledger/facts/ directory");
     warnings++;
   }
 

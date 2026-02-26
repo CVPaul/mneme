@@ -20,7 +20,7 @@ Prompt engineering doesn't fix this. The issue is structural: agents have no sep
 
 ```
 ┌─────────────────────────────────────────┐
-│  OpenClaw   — Facts     (long-term)     │  survives forever
+│  Ledger   — Facts     (long-term)     │  survives forever
 ├─────────────────────────────────────────┤
 │  Beads      — Tasks     (mid-term)      │  survives across sessions
 ├─────────────────────────────────────────┤
@@ -30,7 +30,7 @@ Prompt engineering doesn't fix this. The issue is structural: agents have no sep
 
 | Layer | What it stores | Lifetime | Example |
 |-------|---------------|----------|---------|
-| **OpenClaw** | Verified engineering facts — architecture decisions, constraints, pitfalls | Project lifetime | "Database must use PostgreSQL" |
+| **Ledger** | Verified engineering facts — architecture decisions, constraints, pitfalls | Project lifetime | "Database must use PostgreSQL" |
 | **Beads** | Task state — what's done, what's blocked, what's next | Cross-session | "Auth module: JWT signing done, verification pending" |
 | **OpenCode** | Current execution context — code analysis, file edits | Single session | "This function's third parameter is timeout" |
 
@@ -51,7 +51,7 @@ mneme
 `mneme init` sets up everything in one command:
 1. Installs [Dolt](https://www.dolthub.com/repositories) and [bd](https://github.com/steveyegge/beads) if missing
 2. Initializes a git repo (if needed)
-3. Creates the three-layer structure (`.openclaw/`, `.beads/`, `.opencode/`, `AGENTS.md`)
+3. Creates the three-layer structure (`.ledger/`, `.beads/`, `.opencode/`, `AGENTS.md`)
 4. Starts the task database
 
 That's it. Run `mneme` to launch the agent, or `mneme doctor` to verify your setup.
@@ -137,7 +137,7 @@ mneme version                   Print version
 After `mneme init`, your project contains:
 
 ```
-.openclaw/
+.ledger/
   facts/                 Long-term facts (architecture, constraints, pitfalls)
   proposals/             Pending fact proposals awaiting human review
 .beads/                  Task database (managed by bd, backed by Dolt)

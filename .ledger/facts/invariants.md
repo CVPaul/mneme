@@ -3,14 +3,14 @@
 ## Three-Layer Separation Principle
 
 1. **Facts and state must not be mixed**
-   - OpenClaw stores only confirmed long-term facts — no task progress or temporary conclusions
+   - Ledger stores only confirmed long-term facts — no task progress or temporary conclusions
    - Beads stores only task state and progress — no architecture decisions or long-term facts
    - Information transfer between layers must be explicit, never implicit
 
-2. **OpenClaw immutability**
-   - Once written, OpenClaw facts must not be unilaterally modified or deleted by agents
+2. **Ledger immutability**
+   - Once written, Ledger facts must not be unilaterally modified or deleted by agents
    - If an agent finds facts contradicting current reality, it must **raise the contradiction** rather than edit directly
-   - Modifying OpenClaw content requires human approval
+   - Modifying Ledger content requires human approval
 
 3. **Beads atomicity**
    - Every bead must be a clear, verifiable task
@@ -20,18 +20,18 @@
 ## Information Writing Rules
 
 4. **Only record confirmed information**
-   - OpenClaw must not contain: temporary ideas, unverified hypotheses, speculative conclusions
+   - Ledger must not contain: temporary ideas, unverified hypotheses, speculative conclusions
    - Information must be verified or human-approved before being written to facts
 
 5. **Priority chain**
-   - OpenClaw facts take priority **over** conversation history
-   - OpenClaw facts take priority **over** agent reasoning
-   - When they conflict, OpenClaw wins unless there is clear evidence to overturn it
+   - Ledger facts take priority **over** conversation history
+   - Ledger facts take priority **over** agent reasoning
+   - When they conflict, Ledger wins unless there is clear evidence to overturn it
 
 ## Session Behavior Rules
 
 6. **Every session must begin by reading all three layers**
-   - Read OpenClaw facts → check Beads via `mneme ready` / `mneme list` → then start executing
+   - Read Ledger facts → check Beads via `mneme ready` / `mneme list` → then start executing
    - Skipping any step is prohibited
 
 7. **Single focus principle**
@@ -40,7 +40,7 @@
 
 8. **Must persist before compaction**
    - Before context compaction, confirmed conclusions must be written to Beads (`mneme update --notes`)
-   - If a new long-term fact is discovered, it must be proposed to OpenClaw
+   - If a new long-term fact is discovered, it must be proposed to Ledger
    - Principle: **you can lose the reasoning process, but you must not lose state or facts**
 
 ## Beads Usage Rules
@@ -57,7 +57,7 @@
 
 ## Format and Naming Rules
 
-11. **OpenClaw facts use Markdown format**
+11. **Ledger facts use Markdown format**
     - Each file has a clear topical scope
     - Use numbering for easy reference
 

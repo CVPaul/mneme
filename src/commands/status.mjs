@@ -2,7 +2,7 @@
  * mneme status — Unified dashboard for all three memory layers.
  *
  * Shows:
- *   Layer 1 (OpenClaw): Facts files summary (count, total lines)
+ *   Layer 1 (Ledger): Facts files summary (count, total lines)
  *   Layer 2 (Beads):    Task counts by status, ready tasks
  *   Layer 3 (OpenCode): Git working tree state, unpushed commits
  */
@@ -11,15 +11,15 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { run, log, color } from "../utils.mjs";
 
-// ── Layer 1: OpenClaw ───────────────────────────────────────────────────────
+// ── Layer 1: Ledger ───────────────────────────────────────────────────────
 
-function showOpenClaw() {
-  console.log(color.bold("\n  Layer 1 — OpenClaw (Long-term Facts)"));
+function showLedger() {
+  console.log(color.bold("\n  Layer 1 — Ledger (Long-term Facts)"));
   console.log(color.dim("  ─────────────────────────────────────"));
 
-  const factsDir = ".openclaw/facts";
+  const factsDir = ".ledger/facts";
   if (!existsSync(factsDir)) {
-    log.warn("  .openclaw/facts/ not found — run `mneme init`");
+    log.warn("  .ledger/facts/ not found — run `mneme init`");
     return;
   }
 
@@ -156,7 +156,7 @@ function showOpenCode() {
 export async function status() {
   console.log(`\n${color.bold("mneme status")} — three-layer memory dashboard`);
 
-  showOpenClaw();
+  showLedger();
   showBeads();
   showOpenCode();
 

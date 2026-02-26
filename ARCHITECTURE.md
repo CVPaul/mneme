@@ -20,7 +20,7 @@ mneme separates agent memory into three layers, each with a different stability 
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  Layer 1: OpenClaw    Facts       (long-term)   │
+│  Layer 1: Ledger    Facts       (long-term)   │
 ├─────────────────────────────────────────────────┤
 │  Layer 2: Beads       Task state  (mid-term)    │
 ├─────────────────────────────────────────────────┤
@@ -30,11 +30,11 @@ mneme separates agent memory into three layers, each with a different stability 
 
 Information flows downward at session start (agent reads facts, then tasks) and upward during work (agent proposes facts, updates tasks). Each layer has strict ownership rules that prevent information from leaking into the wrong place.
 
-### Layer 1: OpenClaw (Facts)
+### Layer 1: Ledger (Facts)
 
 **Purpose:** Store verified engineering facts that outlive any single task or session.
 
-**Storage:** `.openclaw/facts/*.md` — plain Markdown files in version control.
+**Storage:** `.ledger/facts/*.md` — plain Markdown files in version control.
 
 **Contents:**
 - Architecture decisions ("We use PostgreSQL, not SQLite")
@@ -93,10 +93,10 @@ Information flows downward at session start (agent reads facts, then tasks) and 
 **Rules:**
 - The execution layer does not carry memory. When the session ends, this context is gone.
 - It does not manage tasks. It reads task state from Beads and writes progress back.
-- It does not store facts. It reads facts from OpenClaw and proposes new ones for human review.
-- Before context compaction, it must flush confirmed conclusions to Beads and propose any new facts to OpenClaw.
+- It does not store facts. It reads facts from Ledger and proposes new ones for human review.
+- Before context compaction, it must flush confirmed conclusions to Beads and propose any new facts to Ledger.
 
-**Why no persistence?** Because most of what happens during execution is transient. The reasoning chain, the failed approaches, the debug output — these don't need to survive. What matters is the conclusion, and that gets written to the appropriate layer (Beads for progress, OpenClaw for facts). Trying to persist everything leads to bloated context that slows down future sessions.
+**Why no persistence?** Because most of what happens during execution is transient. The reasoning chain, the failed approaches, the debug output — these don't need to survive. What matters is the conclusion, and that gets written to the appropriate layer (Beads for progress, Ledger for facts). Trying to persist everything leads to bloated context that slows down future sessions.
 
 ## Why separate the layers?
 
@@ -110,7 +110,7 @@ By assigning each category to a layer with a matching lifetime, nothing is over-
 
 ### Different information has different trust levels
 
-Facts in OpenClaw have been verified by a human. Task state in Beads is maintained by agents but is inspectable and correctable. Execution context is raw agent reasoning that may be wrong.
+Facts in Ledger have been verified by a human. Task state in Beads is maintained by agents but is inspectable and correctable. Execution context is raw agent reasoning that may be wrong.
 
 If these were mixed, an agent could overwrite a human-verified architectural decision with a conclusion from a single debugging session. The layered model prevents this: facts require human approval to change, while task notes can be updated freely.
 
@@ -130,7 +130,7 @@ When an agent encounters new information during work, it must decide where it be
 New information
   │
   ├─ "Will this matter in 6 months?"
-  │    ├─ Yes, and it's a fact/constraint/lesson → OpenClaw (propose, await approval)
+  │    ├─ Yes, and it's a fact/constraint/lesson → Ledger (propose, await approval)
   │    ├─ Yes, and it's a task or progress note  → Beads (write directly)
   │    └─ No →  "Will the next session need this?"
   │              ├─ Yes → Beads (write to notes or create a task)
@@ -141,8 +141,8 @@ Examples:
 
 | Information | Layer | Reasoning |
 |---|---|---|
-| "This project uses Dolt as its database" | OpenClaw | Architecture decision, won't change |
-| "Never run bd edit from an agent" | OpenClaw | Pitfall, repeatedly relevant |
+| "This project uses Dolt as its database" | Ledger | Architecture decision, won't change |
+| "Never run bd edit from an agent" | Ledger | Pitfall, repeatedly relevant |
 | "Need to implement auth module" | Beads | Work item with a clear completion criteria |
 | "Auth module: JWT signing done, verification next" | Beads | Progress that the next session needs |
 | "This function's third arg is a timeout" | Execution | Only relevant to the current task |
@@ -151,7 +151,7 @@ Examples:
 
 ```
 Session start:
-  Agent ──read──→ OpenClaw facts         (establish long-term context)
+  Agent ──read──→ Ledger facts         (establish long-term context)
   Agent ──read──→ Beads via mneme ready   (find actionable work)
   Agent ──claim──→ one task               (single focus per session)
 
@@ -162,7 +162,7 @@ During execution:
 
 Before compaction:
   Agent ──flush──→ Beads notes            (persist confirmed conclusions)
-  Agent ──propose──→ OpenClaw             (new facts, pending human review)
+  Agent ──propose──→ Ledger             (new facts, pending human review)
 
 Session end:
   Agent ──close──→ Beads task             (if complete)
@@ -181,12 +181,12 @@ mneme is a Node.js CLI with zero npm dependencies. It orchestrates three externa
 | **[Dolt](https://www.dolthub.com/)** | Version-controlled SQL database | `.beads/dolt/` |
 | **Git** | Version control | `.git/` |
 
-OpenClaw is not a separate tool — it's a convention: Markdown files in `.openclaw/facts/`, managed through `mneme propose` and `mneme review`.
+Ledger is not a separate tool — it's a convention: Markdown files in `.ledger/facts/`, managed through `mneme propose` and `mneme review`.
 
 ## File layout
 
 ```
-.openclaw/
+.ledger/
   facts/
     architecture.md          Verified architecture decisions
     invariants.md            Constraints that must not be violated

@@ -1,7 +1,7 @@
 /**
- * mneme propose — Propose a new fact for OpenClaw.
+ * mneme propose — Propose a new fact for Ledger.
  *
- * Creates a pending proposal in `.openclaw/proposals/` that requires
+ * Creates a pending proposal in `.ledger/proposals/` that requires
  * human review via `mneme review` before being written to facts.
  *
  * Usage:
@@ -20,8 +20,8 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { log, color } from "../utils.mjs";
 
-const PROPOSALS_DIR = ".openclaw/proposals";
-const FACTS_DIR = ".openclaw/facts";
+const PROPOSALS_DIR = ".ledger/proposals";
+const FACTS_DIR = ".ledger/facts";
 
 /**
  * Parse --key=value and --key "value" style args.

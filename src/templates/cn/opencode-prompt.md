@@ -1,12 +1,12 @@
 这是一个长期工程项目。每次会话开始时，请严格按以下流程执行：
 
-## 第一步：读取 OpenClaw 事实（长期知识）
+## 第一步：读取 Ledger 事实（长期知识）
 
 完整读取以下所有文件：
-- .openclaw/facts/architecture.md
-- .openclaw/facts/invariants.md
-- .openclaw/facts/performance_rules.md
-- .openclaw/facts/pitfalls.md
+- .ledger/facts/architecture.md
+- .ledger/facts/invariants.md
+- .ledger/facts/performance_rules.md
+- .ledger/facts/pitfalls.md
 
 这些是经过验证的长期事实：
 - 它们的优先级高于对话历史和你自己的推理
@@ -31,7 +31,7 @@
 
 工作过程中你会发现新信息，请立即分类：
 
-- **长期事实或约束？** 提议给 OpenClaw：`mneme propose --file=<name> --content="..." --reason="..."`
+- **长期事实或约束？** 提议给 Ledger：`mneme propose --file=<name> --content="..." --reason="..."`
 - **任务或进度更新？** 写入 Beads：`mneme create` 或 `mneme update <id> --notes="..."`
 - **只跟当前相关？** 保留在上下文中，不持久化
 

@@ -1,12 +1,12 @@
 This is a long-running engineering project. Follow this sequence strictly at session start:
 
-## Step 1: Read OpenClaw facts (long-term knowledge)
+## Step 1: Read Ledger facts (long-term knowledge)
 
 Read all of these files completely:
-- .openclaw/facts/architecture.md
-- .openclaw/facts/invariants.md
-- .openclaw/facts/performance_rules.md
-- .openclaw/facts/pitfalls.md
+- .ledger/facts/architecture.md
+- .ledger/facts/invariants.md
+- .ledger/facts/performance_rules.md
+- .ledger/facts/pitfalls.md
 
 These are verified long-term facts:
 - They take priority over conversation history and your own reasoning
@@ -31,7 +31,7 @@ Use `mneme` commands to check what work is available:
 
 As you work, you will discover new information. Classify it immediately:
 
-- **Long-term fact or constraint?** Propose to OpenClaw: `mneme propose --file=<name> --content="..." --reason="..."`
+- **Long-term fact or constraint?** Propose to Ledger: `mneme propose --file=<name> --content="..." --reason="..."`
 - **Task or progress update?** Write to Beads: `mneme create` or `mneme update <id> --notes="..."`
 - **Only relevant right now?** Keep in context, do not persist
 

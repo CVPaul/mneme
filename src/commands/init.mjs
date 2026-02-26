@@ -4,7 +4,7 @@
  * Steps:
  *   1. Install dependencies (git, dolt, bd)
  *   2. git init (if needed)
- *   3. Scaffold .openclaw/facts/, .opencode/prompt.md, AGENTS.md, .gitignore
+ *   3. Scaffold .ledger/facts/, .opencode/prompt.md, AGENTS.md, .gitignore
  *   4. Start dolt server + bd init
  */
 
@@ -28,10 +28,10 @@ const SUPPORTED_LOCALES = new Set(["en", "cn"]);
 const SCAFFOLD = {
   "AGENTS.md": "AGENTS.md",
   ".opencode/prompt.md": "opencode-prompt.md",
-  ".openclaw/facts/architecture.md": "facts-architecture.md",
-  ".openclaw/facts/invariants.md": "facts-invariants.md",
-  ".openclaw/facts/performance_rules.md": "facts-performance_rules.md",
-  ".openclaw/facts/pitfalls.md": "facts-pitfalls.md",
+  ".ledger/facts/architecture.md": "facts-architecture.md",
+  ".ledger/facts/invariants.md": "facts-invariants.md",
+  ".ledger/facts/performance_rules.md": "facts-performance_rules.md",
+  ".ledger/facts/pitfalls.md": "facts-pitfalls.md",
   ".gitignore": "gitignore",
 };
 

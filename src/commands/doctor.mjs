@@ -46,7 +46,7 @@ function checkDoltServer() {
 function checkStructure() {
   const checks = [
     [".git/", "git repository"],
-    [".openclaw/facts/", "OpenClaw facts directory"],
+    [".ledger/facts/", "Ledger facts directory"],
     [".opencode/prompt.md", "OpenCode session prompt"],
     ["AGENTS.md", "Agent behavior rules"],
     [".beads/", "Beads data directory"],
@@ -63,8 +63,8 @@ function checkStructure() {
   }
 
   // Check facts files
-  if (existsSync(".openclaw/facts/")) {
-    const files = readdirSync(".openclaw/facts/").filter((f) =>
+  if (existsSync(".ledger/facts/")) {
+    const files = readdirSync(".ledger/facts/").filter((f) =>
       f.endsWith(".md"),
     );
     log.info(`  ${files.length} facts file(s): ${files.join(", ")}`);

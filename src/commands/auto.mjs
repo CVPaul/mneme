@@ -3,7 +3,7 @@
  *
  * Starts an opencode server (or attaches to existing), then continuously:
  *   1. Picks the highest-priority unblocked bead from `mneme ready`
- *   2. Composes a prompt with bead context + OpenClaw facts
+ *   2. Composes a prompt with bead context + Ledger facts
  *   3. Sends it to opencode via HTTP API
  *   4. Streams progress to terminal
  *   5. Accepts user input at any time (queued, injected between turns)
@@ -193,10 +193,10 @@ function parseBeadText(text) {
 // ── Prompt composition ──────────────────────────────────────────────────────
 
 /**
- * Read OpenClaw facts as context string.
+ * Read Ledger facts as context string.
  */
 function readFacts() {
-  const factsDir = ".openclaw/facts";
+  const factsDir = ".ledger/facts";
   if (!existsSync(factsDir)) return "";
 
   const files = readdirSync(factsDir).filter((f) => f.endsWith(".md"));
@@ -243,7 +243,7 @@ function buildSystemContext() {
   }
 
   if (facts) {
-    context += "## Long-term Facts (OpenClaw)\n\n";
+    context += "## Long-term Facts (Ledger)\n\n";
     context += facts + "\n\n";
   }
 

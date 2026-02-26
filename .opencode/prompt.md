@@ -1,12 +1,12 @@
 This is a long-running engineering project. Follow this sequence strictly at session start:
 
-## Step 1: Read OpenClaw facts (long-term knowledge)
+## Step 1: Read Ledger facts (long-term knowledge)
 
 Read all of these files completely:
-- .openclaw/facts/architecture.md
-- .openclaw/facts/invariants.md
-- .openclaw/facts/performance_rules.md
-- .openclaw/facts/pitfalls.md
+- .ledger/facts/architecture.md
+- .ledger/facts/invariants.md
+- .ledger/facts/performance_rules.md
+- .ledger/facts/pitfalls.md
 
 These are verified long-term facts:
 - They take priority over conversation history and your own reasoning
@@ -31,18 +31,18 @@ Use `mneme` commands to check what work is available:
 
 As you work, you will discover new information. **You must classify it automatically**:
 
-- **Will it matter in 6 months?** + it's a fact/constraint/lesson → **Propose to OpenClaw** (requires human approval)
+- **Will it matter in 6 months?** + it's a fact/constraint/lesson → **Propose to Ledger** (requires human approval)
 - **Will it matter in 6 months?** + it's a task/progress update → **Write to Beads** (`mneme create` or `mneme update --notes`)
 - **Will the next session need it?** → **Write to Beads**
 - **Only needed for the current operation?** → Keep in context, do not persist
 
-Before writing to OpenClaw: verified + repeatedly needed + won't become stale quickly + no duplicate. See AGENTS.md "Information routing" section.
+Before writing to Ledger: verified + repeatedly needed + won't become stale quickly + no duplicate. See AGENTS.md "Information routing" section.
 
 ## Key rules
 
 - Do not skip these steps and jump straight to coding
 - After completing a milestone: `mneme update <id> --notes="progress"`
 - After finishing a task: `mneme close <id> --reason="summary"`
-- When discovering a new long-term fact: propose to OpenClaw (requires human approval)
+- When discovering a new long-term fact: propose to Ledger (requires human approval)
 - Before compaction: persist all state and conclusions
 - Never use `bd edit` (opens interactive editor) — use `mneme update` instead

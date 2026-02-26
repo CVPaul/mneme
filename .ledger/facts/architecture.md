@@ -6,7 +6,7 @@ mneme uses a three-layer memory plane architecture that fully decouples informat
 
 ```
 ┌─────────────────────────────────────────┐
-│  Layer 1: OpenClaw  — Long-term Facts    │  ← Extremely stable, project lifetime
+│  Layer 1: Ledger  — Long-term Facts    │  ← Extremely stable, project lifetime
 ├─────────────────────────────────────────┤
 │  Layer 2: Beads     — Task State         │  ← Mid-term changes, cross-session
 ├─────────────────────────────────────────┤
@@ -16,9 +16,9 @@ mneme uses a three-layer memory plane architecture that fully decouples informat
 
 ## Layer Responsibilities
 
-### OpenClaw (Long-term Facts Layer)
+### Ledger (Long-term Facts Layer)
 
-- **Storage**: `.openclaw/facts/` directory
+- **Storage**: `.ledger/facts/` directory
 - **Content**: Architecture decisions, immutable constraints, performance red lines, known pitfalls
 - **Write frequency**: Extremely low — only when a new long-term fact is confirmed
 - **Read frequency**: Must be read at the start of every session
@@ -46,7 +46,7 @@ mneme uses a three-layer memory plane architecture that fully decouples informat
 
 ```
 Session start:
-  OpenCode ── reads ──→ OpenClaw facts (establish long-term context)
+  OpenCode ── reads ──→ Ledger facts (establish long-term context)
   OpenCode ── mneme ready / mneme list ──→ Beads (restore task progress)
   OpenCode ── mneme update --status=in_progress ──→ claim one bead as focus
 
@@ -57,7 +57,7 @@ During execution:
 
 Before compaction:
   OpenCode ── mneme update --notes ──→ Beads (persist confirmed conclusions)
-  OpenCode ── proposes ──→ new long-term facts → OpenClaw (requires human approval)
+  OpenCode ── proposes ──→ new long-term facts → Ledger (requires human approval)
 ```
 
 ## Directory Structure
@@ -67,7 +67,7 @@ project/
 ├── README.md                    # Project overview and quick start
 ├── ARCHITECTURE.md              # Three-layer memory architecture design doc
 ├── AGENTS.md                    # Agent behavior rules
-├── .openclaw/
+├── .ledger/
 │   └── facts/
 │       ├── architecture.md      # Project architecture
 │       ├── invariants.md        # Hard constraints and red lines

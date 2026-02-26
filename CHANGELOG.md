@@ -20,7 +20,7 @@ First public release of mneme, a three-layer memory architecture for AI coding a
 ### What's included
 
 **Three-layer memory architecture**
-- **OpenClaw** (long-term facts): `.openclaw/facts/` stores verified architecture decisions, constraints, performance rules, and pitfalls. Facts persist across the entire project lifetime and require human approval to modify.
+- **Ledger** (long-term facts): `.ledger/facts/` stores verified architecture decisions, constraints, performance rules, and pitfalls. Facts persist across the entire project lifetime and require human approval to modify.
 - **Beads** (task state): Dependency-aware task tracking backed by [Dolt](https://www.dolthub.com/) and [bd](https://github.com/steveyegge/beads). Tasks survive across agent sessions with full status, notes, and dependency graphs.
 - **OpenCode** (execution): Wraps [OpenCode](https://opencode.ai) as the agent runtime. Context is ephemeral — disposable by design.
 
