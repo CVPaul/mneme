@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { log, color } from "../utils.mjs";
 
 const FACTS_DIR = ".openclaw/facts";
+const PROPOSALS_DIR = ".openclaw/proposals";
 const LINE_BUDGET_PER_FILE = 200;
 const LINE_BUDGET_TOTAL = 800;
 
@@ -83,6 +84,25 @@ function listFacts(showStats) {
     log.warn(
       "Facts approaching size budget — review and prune stale entries.",
     );
+  }
+
+  // Show pending proposals count
+  if (existsSync(PROPOSALS_DIR)) {
+    const pending = readdirSync(PROPOSALS_DIR)
+      .filter((f) => f.endsWith(".json"))
+      .filter((f) => {
+        try {
+          const p = JSON.parse(readFileSync(join(PROPOSALS_DIR, f), "utf-8"));
+          return p.status === "pending";
+        } catch {
+          return false;
+        }
+      });
+    if (pending.length > 0) {
+      log.warn(
+        `${pending.length} pending proposal(s) — run ${color.bold("mneme review")} to review`,
+      );
+    }
   }
 }
 

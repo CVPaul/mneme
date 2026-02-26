@@ -4,8 +4,8 @@
  * mneme CLI — Three-layer memory architecture for AI coding agents.
  *
  * Unified entry point that routes to:
- *   1. mneme's own commands (init, doctor, status, compact, facts)
- *   2. opencode commands (run, web, serve, etc.)
+ *   1. mneme's own commands (init, doctor, status, compact, facts, propose, review)
+ *   2. opencode commands (run, web, serve, etc.) — default fallback
  *   3. bd/beads commands (ready, list, create, close, etc.)
  *
  * Usage:
@@ -52,6 +52,8 @@ const MNEME_COMMANDS = new Set([
   "status",
   "compact",
   "facts",
+  "propose",
+  "review",
   "version",
   "--version",
   "-v",
@@ -99,6 +101,16 @@ switch (command) {
     await facts(args.slice(1));
     break;
   }
+  case "propose": {
+    const { propose } = await import("../src/commands/propose.mjs");
+    await propose(args.slice(1));
+    break;
+  }
+  case "review": {
+    const { review } = await import("../src/commands/review.mjs");
+    await review(args.slice(1));
+    break;
+  }
   case "version":
   case "--version":
   case "-v":
@@ -113,12 +125,19 @@ mneme ${pkg.version} — Three-layer memory architecture for AI coding agents
 Usage:
   mneme                         Start opencode TUI
 
-  ${bold("Memory management:")}
+  ${bold("Memory management (OpenClaw):")}
+  mneme facts [name] [--stats]  View facts
+  mneme propose --file=... --content=... --reason=...
+                                Propose a new fact (pending human review)
+  mneme review                  List pending proposals
+  mneme review <id> --approve   Approve and write to facts
+  mneme review <id> --reject    Reject proposal
+
+  ${bold("Project health:")}
   mneme init                    Initialize mneme in the current directory
   mneme doctor                  Check dependencies and project health
   mneme status                  Show three-layer memory dashboard
   mneme compact                 Pre-compaction persistence check
-  mneme facts [name] [--stats]  View OpenClaw facts
 
   ${bold("Task management (beads):")}
   mneme ready                   Show tasks with no blockers

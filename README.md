@@ -34,11 +34,18 @@ mneme init         # 初始化当前目录
 mneme doctor       # 检查依赖和项目健康状态
 mneme status       # 三层记忆状态总览
 mneme compact      # 压缩前持久化检查
-mneme facts        # 查看 OpenClaw 事实文件
-mneme facts --stats # 查看事实文件统计（行数/预算）
 mneme version      # 打印版本号
 
-# 任务管理（beads 透传）
+# OpenClaw — 长期事实管理
+mneme facts                    # 查看事实文件列表
+mneme facts --stats            # 查看行数/预算统计
+mneme facts architecture       # 查看某个事实文件内容
+mneme propose --file=pitfalls --content="..." --reason="..."  # 提议新事实
+mneme review                   # 列出待审批提议
+mneme review <id> --approve    # 批准提议，写入 facts
+mneme review <id> --reject     # 拒绝提议
+
+# Beads — 任务管理
 mneme ready                   # 查看可执行任务
 mneme list --status=open      # 列出所有未完成任务
 mneme show <id>               # 查看任务详情
@@ -46,7 +53,7 @@ mneme create --title="..." --description="..." --type=task -p 2  # 创建任务
 mneme update <id> --notes="进度说明"  # 更新任务
 mneme close <id> --reason="完成"      # 关闭任务
 
-# opencode 命令透传
+# OpenCode — AI agent（opencode 透传）
 mneme run "fix the bug"   # 非交互模式运行
 mneme web                 # 启动 Web 界面
 mneme serve               # 启动 headless server
@@ -68,6 +75,7 @@ mneme serve               # 启动 headless server
 
 ```
 .openclaw/facts/         长期事实（架构、约束、红线、陷阱）
+.openclaw/proposals/     待审批的事实提议（mneme propose 创建）
 .beads/                  任务状态（由 bd 管理）
 .opencode/prompt.md      Session 启动 prompt
 AGENTS.md                Agent 行为规则
@@ -108,8 +116,8 @@ mneme close <id> --reason="Done"
 
 | 信息示例 | 写入层 |
 |---|---|
-| "数据库必须用 PostgreSQL" | OpenClaw `facts/architecture.md` |
-| "禁止在生产环境直接改数据" | OpenClaw `facts/invariants.md` |
+| "数据库必须用 PostgreSQL" | OpenClaw `mneme propose --file=architecture` |
+| "禁止在生产环境直接改数据" | OpenClaw `mneme propose --file=invariants` |
 | "需要实现用户认证模块" | Beads `mneme create` |
 | "函数第 3 个参数是 timeout" | 不写，留在 OpenCode |
 
