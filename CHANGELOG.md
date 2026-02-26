@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.1
+
+- Translate all template files (`mneme init` scaffolding) from Chinese to English
+- Translate session startup prompt (`.opencode/prompt.md` template) to English
+- Add `examples/basic/` with a realistic todo-api scenario
+- Add `CHANGELOG.md`
+
 ## v0.1.0 — Initial Release
 
 First public release of mneme, a three-layer memory architecture for AI coding agents.
