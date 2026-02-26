@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.4
+
+- Move English templates to `en/` subdirectory for consistent locale structure (`src/templates/en/`, `src/templates/cn/`)
+
 ## v0.1.3
 
 - Rename Layer 1 from "OpenClaw" to "Ledger" (`.openclaw/` -> `.ledger/`) across all code, templates, and documentation
