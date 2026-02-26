@@ -356,7 +356,7 @@ ${color.bold("===============================")}
 
 ${color.bold("Next steps:")}
   mneme                      # Start coding with AI agent
-  bd ready                   # Check available tasks
+  mneme ready                    # Check available tasks
   mneme doctor               # Verify everything is healthy
 `);
 }

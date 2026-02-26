@@ -80,7 +80,7 @@ export async function compact() {
         }
         console.log(
           color.dim(
-            '\n    Use: bd update <id> --notes="current progress..."',
+            '\n    Use: mneme update <id> --notes="current progress..."',
           ),
         );
         warnings++;
