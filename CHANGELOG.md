@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.12
+
+- **Goal discussion feature** — when `mneme auto` is run without a goal:
+  - **Headless mode**: asks user to choose "pick from beads" or "discuss with Planner"; if no beads exist only the discuss option is shown
+  - **Daemon+TUI mode**: always enters goal discussion — Planner presents current beads and suggestions, user discusses in TUI, types `/go` to start execution
+  - `buildPlannerDiscoveryPrompt()`: gathers beads state and asks Planner to suggest goals
+  - `buildPlannerFinalizeGoalPrompt()`: sent after `/go`, Planner summarizes the agreed goal and produces first executor instruction
+  - `goalDiscussionHeadless()` / `goalDiscussionDaemon()`: full interactive discussion loops for both modes
+- **Daemon+TUI architecture** (`mneme auto` default mode):
+  - `mneme auto` now forks a background daemon (prompt driver) and opens the opencode TUI in foreground
+  - Daemon connects via `--_daemon` internal flag, monitors SSE silently, logs to `.mneme-auto.log`
+  - Daemon detects user messages in TUI and pauses auto loop while user interacts
+  - Daemon exits when parent (TUI) exits (polls ppid + SIGHUP)
+- **Fix: `onUserMessage` getter** in `createDaemonEventMonitor` — `goalDiscussionDaemon` can now correctly save/restore the previous handler
+- Updated help text with `/go` command and goal discussion behavior
+
 ## v0.1.11
 
 - **Fix: SSE event parsing** — opencode serve sends `{type, properties}` inside the `data:` JSON, not as separate SSE `event:` lines; parser now correctly extracts event type from JSON payload
