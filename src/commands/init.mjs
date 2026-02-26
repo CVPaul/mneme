@@ -62,7 +62,7 @@ function scaffoldFiles(locale = "en") {
       mkdirSync(dir, { recursive: true });
     }
 
-    const templatePath = LOCALIZABLE.has(templateName) && locale !== "en"
+    const templatePath = LOCALIZABLE.has(templateName)
       ? join(TEMPLATES_DIR, locale, templateName)
       : join(TEMPLATES_DIR, templateName);
     const content = readFileSync(templatePath, "utf-8");
