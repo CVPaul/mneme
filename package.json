@@ -1,6 +1,6 @@
 {
   "name": "@xqli02/mneme",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Three-layer memory architecture for AI coding agents (Ledger + Beads + OpenCode)",
   "type": "module",
   "bin": {

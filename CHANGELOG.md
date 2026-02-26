@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.7
+
+- Fix user-facing references: `bd ready` → `mneme ready` in init output, `bd update` → `mneme update` in compact hint
+
 ## v0.1.6
 
 - Add `mneme server` command with `start`, `stop`, `status`, `restart` subcommands for managing the dolt SQL server
