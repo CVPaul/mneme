@@ -4,7 +4,7 @@
   "description": "Three-layer memory architecture for AI coding agents (OpenClaw + Beads + OpenCode)",
   "type": "module",
   "bin": {
-    "mneme": "./bin/mneme.mjs"
+    "mneme": "bin/mneme.mjs"
   },
   "files": [
     "bin/",
@@ -23,7 +23,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/CVPaul/mneme.git"
+    "url": "git+https://github.com/CVPaul/mneme.git"
   },
   "engines": {
     "node": ">=18"
