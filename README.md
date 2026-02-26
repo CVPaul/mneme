@@ -38,6 +38,14 @@ mneme facts        # 查看 OpenClaw 事实文件
 mneme facts --stats # 查看事实文件统计（行数/预算）
 mneme version      # 打印版本号
 
+# 任务管理（beads 透传）
+mneme ready                   # 查看可执行任务
+mneme list --status=open      # 列出所有未完成任务
+mneme show <id>               # 查看任务详情
+mneme create --title="..." --description="..." --type=task -p 2  # 创建任务
+mneme update <id> --notes="进度说明"  # 更新任务
+mneme close <id> --reason="完成"      # 关闭任务
+
 # opencode 命令透传
 mneme run "fix the bug"   # 非交互模式运行
 mneme web                 # 启动 Web 界面
@@ -70,19 +78,19 @@ AGENTS.md                Agent 行为规则
 
 ```bash
 # 1. 读取长期事实（agent 自动执行）
-cat .openclaw/facts/*.md
+mneme facts
 
 # 2. 查看可执行任务
-bd ready
+mneme ready
 
 # 3. Claim 一个任务
-bd update <id> --status=in_progress
+mneme update <id> --status=in_progress
 
 # 4. 工作、记录进度
-bd update <id> --notes="完成了 X，发现了 Y"
+mneme update <id> --notes="完成了 X，发现了 Y"
 
 # 5. 完成
-bd close <id> --reason="Done"
+mneme close <id> --reason="Done"
 ```
 
 ## 什么信息放哪一层？
@@ -102,7 +110,7 @@ bd close <id> --reason="Done"
 |---|---|
 | "数据库必须用 PostgreSQL" | OpenClaw `facts/architecture.md` |
 | "禁止在生产环境直接改数据" | OpenClaw `facts/invariants.md` |
-| "需要实现用户认证模块" | Beads `bd create` |
+| "需要实现用户认证模块" | Beads `mneme create` |
 | "函数第 3 个参数是 timeout" | 不写，留在 OpenCode |
 
 ## 核心文件说明

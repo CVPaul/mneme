@@ -3,7 +3,10 @@
 /**
  * mneme CLI — Three-layer memory architecture for AI coding agents.
  *
- * Wraps opencode with three-layer memory initialization and management.
+ * Unified entry point that routes to:
+ *   1. mneme's own commands (init, doctor, status, compact, facts)
+ *   2. opencode commands (run, web, serve, etc.)
+ *   3. bd/beads commands (ready, list, create, close, etc.)
  *
  * Usage:
  *   mneme              Start opencode (same as `mneme start`)
@@ -12,7 +15,10 @@
  *   mneme status       Show three-layer memory dashboard
  *   mneme compact      Pre-compaction persistence check
  *   mneme facts        View OpenClaw facts
- *   mneme start        Start opencode TUI
+ *   mneme ready        Show ready tasks (bd ready)
+ *   mneme list         List tasks (bd list)
+ *   mneme create       Create task (bd create)
+ *   mneme close        Close task (bd close)
  *   mneme run [msg..]  Run opencode with a message (non-interactive)
  *   mneme <opencode-subcommand> [args..]   Pass through to opencode
  */
@@ -31,7 +37,15 @@ const pkg = JSON.parse(
 const args = process.argv.slice(2);
 const [command] = args;
 
-// mneme's own commands (not passed through to opencode)
+// Simple bold helper for help text
+const bold = (s) =>
+  process.stdout.isTTY && process.env.FORCE_COLOR !== "0"
+    ? `\x1b[1m${s}\x1b[0m`
+    : s;
+
+// ── Command routing ─────────────────────────────────────────────────────────
+
+// mneme's own commands
 const MNEME_COMMANDS = new Set([
   "init",
   "doctor",
@@ -44,6 +58,19 @@ const MNEME_COMMANDS = new Set([
   "help",
   "--help",
   "-h",
+]);
+
+// bd (beads) subcommands promoted to mneme top-level — the essential set
+// for agent workflow. All other commands default to opencode.
+const BD_COMMANDS = new Set([
+  "ready",
+  "list",
+  "show",
+  "create",
+  "update",
+  "close",
+  "blocked",
+  "dep",
 ]);
 
 switch (command) {
@@ -85,16 +112,31 @@ mneme ${pkg.version} — Three-layer memory architecture for AI coding agents
 
 Usage:
   mneme                         Start opencode TUI
+
+  ${bold("Memory management:")}
   mneme init                    Initialize mneme in the current directory
   mneme doctor                  Check dependencies and project health
   mneme status                  Show three-layer memory dashboard
   mneme compact                 Pre-compaction persistence check
   mneme facts [name] [--stats]  View OpenClaw facts
-  mneme version                 Print version
 
+  ${bold("Task management (beads):")}
+  mneme ready                   Show tasks with no blockers
+  mneme list [--status=STATUS]  List tasks
+  mneme show <id>               Show task details
+  mneme create --title="..."    Create a new task
+  mneme update <id> [--notes..] Update a task
+  mneme close <id> [--reason..] Close a task
+  mneme blocked                 Show blocked tasks
+  mneme dep add <child> <parent>  Add dependency
+
+  ${bold("AI agent (opencode):")}
   mneme start                   Start opencode TUI (same as bare mneme)
-  mneme run [message..]         Run opencode with a message (non-interactive)
-  mneme <opencode-cmd> [args..] Pass through to opencode (e.g. mneme web, mneme serve)
+  mneme run [message..]         Run opencode non-interactively
+  mneme web                     Start web interface
+  mneme serve                   Start headless server
+
+  mneme version                 Print version
 
 Quickstart:
   mkdir my-project && cd my-project
@@ -103,13 +145,15 @@ Quickstart:
 `);
     break;
   default:
-    // Everything else: pass through to opencode.
-    // - `mneme` (no args)        → opencode
-    // - `mneme start`            → opencode
-    // - `mneme run "fix the bug"` → opencode run "fix the bug"
-    // - `mneme web`              → opencode web
-    // - `mneme serve`            → opencode serve
-    launchOpencode(args);
+    // Route: bd commands → bd, everything else → opencode (default)
+    if (!command) {
+      // bare `mneme` → launch opencode TUI
+      launchOpencode([]);
+    } else if (BD_COMMANDS.has(command)) {
+      launchBd(args);
+    } else {
+      launchOpencode(args);
+    }
     break;
 }
 
@@ -124,23 +168,41 @@ function launchOpencode(args) {
     ocArgs = ocArgs.slice(1);
   }
 
-  // Find opencode binary
-  const result = spawnSync("opencode", ocArgs, {
+  launchExternal("opencode", ocArgs, {
+    notFoundMsg:
+      "Error: opencode is not installed or not in PATH.\n" +
+      "Install it: https://opencode.ai\n" +
+      'Or run "mneme doctor" to check dependencies.',
+  });
+}
+
+/**
+ * Launch bd (beads), forwarding arguments.
+ * `mneme bd ready` → `bd ready`
+ */
+function launchBd(args) {
+  launchExternal("bd", args, {
+    notFoundMsg:
+      "Error: bd (beads) is not installed or not in PATH.\n" +
+      "Run `mneme init` to install it, or see https://github.com/steveyegge/beads",
+  });
+}
+
+/**
+ * Launch an external binary, forwarding arguments and inheriting stdio.
+ */
+function launchExternal(bin, args, { notFoundMsg }) {
+  const result = spawnSync(bin, args, {
     stdio: "inherit",
-    // Pass through the full environment, plus ensure TERM is set for TUI
     env: { ...process.env },
   });
 
   if (result.error) {
     if (result.error.code === "ENOENT") {
-      console.error(
-        "Error: opencode is not installed or not in PATH.\n" +
-          "Install it: https://opencode.ai\n" +
-          'Or run "mneme doctor" to check dependencies.',
-      );
+      console.error(notFoundMsg);
       process.exit(1);
     }
-    console.error(`Error launching opencode: ${result.error.message}`);
+    console.error(`Error launching ${bin}: ${result.error.message}`);
     process.exit(1);
   }
 
