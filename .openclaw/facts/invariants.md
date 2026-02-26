@@ -63,5 +63,4 @@
 
 12. **Beads 使用 bd CLI 管理**
     - 数据存储在 Dolt 数据库中（`.beads/` 目录）
-    - 可通过 `bd export` 导出 JSONL 格式快照
     - ID 为 hash-based 格式（如 `bd-a1b2`），不可手动编辑
