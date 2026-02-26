@@ -17,6 +17,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const TEMPLATES_DIR = join(__dirname, "..", "templates");
 
+// Supported locales: "en" (default), "cn" (Chinese)
+const SUPPORTED_LOCALES = new Set(["en", "cn"]);
+
 // ── Template scaffolding ────────────────────────────────────────────────────
 
 /**
@@ -32,7 +35,17 @@ const SCAFFOLD = {
   ".gitignore": "gitignore",
 };
 
-function scaffoldFiles() {
+// Templates that have locale-specific versions (everything except .gitignore)
+const LOCALIZABLE = new Set([
+  "AGENTS.md",
+  "opencode-prompt.md",
+  "facts-architecture.md",
+  "facts-invariants.md",
+  "facts-performance_rules.md",
+  "facts-pitfalls.md",
+]);
+
+function scaffoldFiles(locale = "en") {
   let created = 0;
   let skipped = 0;
 
@@ -49,7 +62,9 @@ function scaffoldFiles() {
       mkdirSync(dir, { recursive: true });
     }
 
-    const templatePath = join(TEMPLATES_DIR, templateName);
+    const templatePath = LOCALIZABLE.has(templateName) && locale !== "en"
+      ? join(TEMPLATES_DIR, locale, templateName)
+      : join(TEMPLATES_DIR, templateName);
     const content = readFileSync(templatePath, "utf-8");
 
     // For .gitignore, we append rather than overwrite if it already exists
@@ -300,9 +315,12 @@ function initGit() {
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
-export async function init() {
+export async function init(args = []) {
+  // Parse locale from args: `mneme init cn` → locale "cn"
+  const locale = args.length > 0 && SUPPORTED_LOCALES.has(args[0]) ? args[0] : "en";
+
   console.log(`
-${color.bold("mneme init")} — Three-layer memory architecture for AI agents
+${color.bold("mneme init")} — Three-layer memory architecture for AI agents${locale !== "en" ? ` (${locale})` : ""}
 `);
 
   const { os, arch } = getPlatform();
@@ -325,7 +343,7 @@ ${color.bold("mneme init")} — Three-layer memory architecture for AI agents
 
   // Step 3: Scaffold files
   log.step(3, 4, "Scaffold project structure");
-  const { created, skipped } = scaffoldFiles();
+  const { created, skipped } = scaffoldFiles(locale);
   log.info(`  ${created} file(s) created, ${skipped} already existed`);
 
   // Step 4: Dolt + Beads

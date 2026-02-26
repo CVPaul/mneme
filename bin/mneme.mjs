@@ -80,7 +80,7 @@ const BD_COMMANDS = new Set([
 switch (command) {
   case "init": {
     const { init } = await import("../src/commands/init.mjs");
-    await init();
+    await init(args.slice(1));
     break;
   }
   case "doctor": {
@@ -141,7 +141,7 @@ Usage:
   mneme review <id> --reject    Reject proposal
 
   ${bold("Project health:")}
-  mneme init                    Initialize mneme in the current directory
+  mneme init [cn]               Initialize mneme (cn = Chinese templates)
   mneme doctor                  Check dependencies and project health
   mneme status                  Show three-layer memory dashboard
   mneme compact                 Pre-compaction persistence check
