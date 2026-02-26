@@ -2,7 +2,7 @@
  * mneme auto — Dual-agent autonomous supervisor loop.
  *
  * Uses two agents in the same opencode session:
- *   - Planner (default: gpt-5.2): analyzes goal, breaks down tasks, reviews results
+ *   - Planner (default: gpt-4.1): analyzes goal, breaks down tasks, reviews results
  *   - Executor (default: claude-opus-4.6): writes code, runs commands, implements changes
  *
  * The planner and executor alternate turns via per-message model switching.
@@ -35,7 +35,7 @@ import { color, log, run, has } from "../utils.mjs";
 
 // ── Default models ──────────────────────────────────────────────────────────
 
-const DEFAULT_PLANNER = "github-copilot/gpt-5.2";
+const DEFAULT_PLANNER = "github-copilot/gpt-4.1";
 const DEFAULT_EXECUTOR = "github-copilot/claude-opus-4.6";
 
 // ── Argument parsing ────────────────────────────────────────────────────────
@@ -584,6 +584,28 @@ async function executeTurn(
   // Send async — returns immediately
   await client.session.promptAsync(sessionId, body);
 
+  // Quick check: if model is invalid, the session may error out almost
+  // instantly but promptAsync still returns 204. Poll once after a short
+  // delay to catch this before entering the long wait loop.
+  await sleep(2000);
+  try {
+    const sessions = await client.session.list();
+    const s = sessions?.find?.((ss) => ss.id === sessionId);
+    if (s && s.status && s.status !== "running" && s.status !== "pending") {
+      // Session already finished — likely an immediate error
+      const msgs = await client.session.messages(sessionId);
+      const lastMsg = msgs?.[msgs.length - 1];
+      const errInfo = lastMsg?.info?.error;
+      if (errInfo) {
+        const errMsg = errInfo.data?.message || errInfo.name || "unknown";
+        log.fail(`Model error: ${errMsg}`);
+        return { status: "error", aborted: true, quit: false };
+      }
+    }
+  } catch {
+    // Ignore probe failures — fall through to normal wait
+  }
+
   const HEARTBEAT_INTERVAL = 15_000; // print elapsed every 15s of silence
   const SILENCE_WARN = 30_000; // warn after 30s of no output
   const SILENCE_ABORT = 120_000; // auto-abort after 120s of no output
@@ -684,29 +706,48 @@ async function supervisorLoop(client, opts, inputQueue) {
   const plannerModel = parseModelSpec(opts.planner);
   const executorModel = parseModelSpec(opts.executor);
 
-  // ── Validate models ──
-  log.info("Validating models...");
-  const modelsOutput = run("opencode models 2>/dev/null") || "";
-  const validateModel = (label, spec) => {
-    // Look for the model ID in the output; opencode models lists "provider/model"
-    if (modelsOutput && !modelsOutput.includes(spec)) {
-      log.fail(`${label} model "${spec}" not found in available models.`);
-      console.log(color.dim("  Available models:"));
-      for (const line of modelsOutput.split("\n").filter(l => l.trim())) {
-        console.log(color.dim(`    ${line.trim()}`));
-      }
-      throw new Error(`Invalid ${label.toLowerCase()} model: ${spec}`);
-    }
-  };
-  validateModel("Planner", opts.planner);
-  validateModel("Executor", opts.executor);
-  log.ok("Models validated");
-
-  // Create session
+  // Create session first (needed for model probing)
   log.info("Creating session...");
   const session = await client.session.create({ title: "mneme auto" });
   const sessionId = session.id;
   log.ok(`Session: ${sessionId}`);
+
+  // ── Validate models by sending a real test prompt ──
+  // opencode models lists theoretical models, but the provider may reject them
+  // at runtime (e.g. Copilot plan doesn't include gpt-5.x). Only a real API
+  // call reveals this — sync prompt returns the error, async silently fails.
+  log.info("Validating models (API probe)...");
+  const probeModels = [
+    { label: "Planner", spec: opts.planner, parsed: plannerModel },
+    { label: "Executor", spec: opts.executor, parsed: executorModel },
+  ];
+  // Deduplicate if both use the same model
+  const seen = new Set();
+  for (const m of probeModels) {
+    if (seen.has(m.spec)) continue;
+    seen.add(m.spec);
+    try {
+      const result = await client.session.prompt(sessionId, {
+        parts: [{ type: "text", text: "Say OK" }],
+        model: m.parsed,
+      });
+      // Check if the response contains an error
+      const err = result?.info?.error;
+      if (err) {
+        const msg = err.data?.message || err.name || "unknown error";
+        log.fail(`${m.label} model "${m.spec}" rejected by provider: ${msg}`);
+        console.log(color.dim("  Tip: run 'opencode models' to see listed models, but not all may be available on your plan."));
+        throw new Error(`${m.label} model unavailable: ${msg}`);
+      }
+      log.ok(`${m.label} model verified: ${m.spec}`);
+    } catch (probeErr) {
+      if (probeErr.message.includes("unavailable") || probeErr.message.includes("rejected")) {
+        throw probeErr; // re-throw our own errors
+      }
+      // API call itself failed — might be a transient issue
+      log.warn(`${m.label} model probe inconclusive: ${probeErr.message}`);
+    }
+  }
 
   // Start SSE event display
   const eventDisplay = createEventDisplay(client);

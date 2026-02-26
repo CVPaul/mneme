@@ -1,14 +1,16 @@
 # Changelog
 
-## v0.1.9
+## v0.1.10
 
+- **Fix: model validation uses real API probe** — `opencode models` lists theoretical models but the provider (e.g. GitHub Copilot) may reject them at runtime; now sends a real test prompt at startup and fails immediately if the model is unsupported
+- **Fix: detect model errors during turns** — after `promptAsync`, polls session status after 2s to catch instant model rejections instead of waiting for the 120s silence timeout
+- Default planner changed from `gpt-5.2` to `gpt-4.1` (gpt-5.x unavailable on current Copilot plan)
 - `mneme auto` reliability improvements:
-  - Model validation at startup: verifies both planner and executor models exist before entering the supervisor loop; fails early with a clear error listing available models
-  - Heartbeat: prints elapsed time every 15s when no SSE output is flowing, so users know the process is alive
+  - Heartbeat: prints elapsed time every 15s when no SSE output is flowing
   - No-output timeout: warns at 30s of silence, auto-aborts the turn at 120s (replaces the old 600s safety timeout)
-  - SSE connection tracking: exposes `lastOutputTime`, `connected`, and `hasReceivedAny` from event display for stall detection
+  - SSE connection tracking: exposes `lastOutputTime`, `connected`, `hasReceivedAny` from event display for stall detection
   - SSE auto-reconnect on stream error with 2s backoff
-  - Prints "Sending prompt to Planner/Executor..." before each turn so users see activity immediately
+  - Prints "Sending prompt to Planner/Executor..." before each turn
 - `mneme restart [TARGET]` promoted to top-level alias (was `mneme server restart`)
 
 ## v0.1.8
