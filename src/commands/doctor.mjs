@@ -3,8 +3,7 @@
  */
 
 import { has, run, log, color } from "../utils.mjs";
-import { existsSync } from "node:fs";
-import { readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 
 /**
  * Check a single dependency. Returns true if OK.
@@ -20,13 +19,21 @@ function checkCmd(name, versionCmd) {
 }
 
 /**
- * Check if dolt server is reachable by bd.
+ * Check if dolt server is reachable by bd. Show which database is in use.
  */
 function checkDoltServer() {
   if (!has("bd")) return false;
   const result = run("bd list --status=open 2>&1");
   if (result !== null && !result.includes("unreachable") && !result.includes("Error")) {
-    log.ok("dolt server reachable");
+    // Show which database this project uses
+    let dbInfo = "";
+    if (existsSync(".beads/metadata.json")) {
+      try {
+        const meta = JSON.parse(readFileSync(".beads/metadata.json", "utf-8"));
+        if (meta.dolt_database) dbInfo = ` ${color.dim(`(db: ${meta.dolt_database})`)}`;
+      } catch { /* ignore */ }
+    }
+    log.ok(`dolt server reachable${dbInfo}`);
     return true;
   }
   log.warn("dolt server not running or not reachable");

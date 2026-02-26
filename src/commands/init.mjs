@@ -221,24 +221,34 @@ function installBd() {
 
 // ── Dolt server + bd init ───────────────────────────────────────────────────
 
+/**
+ * Shared dolt data directory. All projects store their databases here,
+ * isolated by database name (e.g. beads_projectA, beads_projectB).
+ * One dolt server on port 3307 serves all projects on this machine.
+ */
+const DOLT_DATA_DIR = process.env.MNEME_DOLT_DATA_DIR
+  || join(process.env.HOME, ".dolt", "databases");
+
+const DOLT_PORT = parseInt(process.env.MNEME_DOLT_PORT || "3307", 10);
+
 function ensureDoltServer() {
-  // Check if bd can already talk to dolt
+  if (!existsSync(DOLT_DATA_DIR)) {
+    mkdirSync(DOLT_DATA_DIR, { recursive: true });
+  }
+
+  // Check if a dolt server is already running and reachable
   const test = run("bd list --status=open 2>&1");
   if (test !== null && !test.includes("unreachable") && !test.includes("connection refused")) {
-    log.ok("dolt server already running");
+    log.ok(`dolt server already running ${color.dim(`(port ${DOLT_PORT})`)}`);
     return true;
   }
 
-  log.info("Starting dolt server...");
-  const dataDir = existsSync(".beads/dolt") ? ".beads/dolt" : `${process.env.HOME}/.dolt/databases`;
+  log.info(`Starting dolt server (port ${DOLT_PORT}, data-dir ${DOLT_DATA_DIR})...`);
+  const logFile = join(DOLT_DATA_DIR, "server.log");
 
-  if (!existsSync(dataDir)) {
-    mkdirSync(dataDir, { recursive: true });
-  }
-
-  // Start in background
+  // Start in background — shared data dir, all project databases coexist
   run(
-    `nohup dolt sql-server --host 127.0.0.1 --port 3307 --data-dir "${dataDir}" > /tmp/dolt-server.log 2>&1 &`,
+    `nohup dolt sql-server --host 127.0.0.1 --port ${DOLT_PORT} --data-dir "${DOLT_DATA_DIR}" > "${logFile}" 2>&1 &`,
   );
 
   // Wait for server to be ready (up to 10s)
@@ -246,12 +256,12 @@ function ensureDoltServer() {
     run("sleep 1");
     const check = run("bd list --status=open 2>&1");
     if (check !== null && !check.includes("unreachable") && !check.includes("connection refused")) {
-      log.ok("dolt server started");
+      log.ok(`dolt server started ${color.dim(`(port ${DOLT_PORT})`)}`);
       return true;
     }
   }
 
-  log.fail("dolt server failed to start. Check /tmp/dolt-server.log");
+  log.fail(`dolt server failed to start. Check ${logFile}`);
   return false;
 }
 
