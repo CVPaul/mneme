@@ -1,0 +1,31 @@
+{
+  "name": "@xqli/mneme",
+  "version": "0.1.0",
+  "description": "Three-layer memory architecture for AI coding agents (OpenClaw + Beads + OpenCode)",
+  "type": "module",
+  "bin": {
+    "mneme": "./bin/mneme.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/"
+  ],
+  "keywords": [
+    "ai",
+    "agent",
+    "memory",
+    "coding-agent",
+    "opencode",
+    "beads",
+    "context-management"
+  ],
+  "author": "CVPaul",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CVPaul/mneme.git"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
