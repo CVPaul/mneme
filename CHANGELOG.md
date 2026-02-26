@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.1.8
+
+- Dual-agent `mneme auto`: planner (gpt-5.2) breaks down tasks and reviews, executor (claude-opus-4.6) implements — both alternate in the same session via per-message model switching
+  - `--planner MODEL` and `--executor MODEL` flags to override defaults
+  - Planner signals `TASK_DONE` when a task is complete, then auto picks the next bead
+- `mneme server` now manages both dolt AND opencode serve (was dolt-only)
+  - `mneme server start/stop/status/restart [dolt|opencode|all]`
+  - New `MNEME_OPENCODE_PORT` env var (default: 4097)
+- Short aliases: `mneme up`, `mneme down`, `mneme ps` for server start/stop/status
+- New shared `src/opencode-server.mjs` — opencode serve process management (find, start, stop, health check)
+- Clean up auto.mjs: remove `_pushBack` hack, fix safety timeout dead code, proper `pushBack()` on input queue
+
 ## v0.1.7
 
 - Fix user-facing references: `bd ready` → `mneme ready` in init output, `bd update` → `mneme update` in compact hint

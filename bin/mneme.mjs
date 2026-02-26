@@ -57,6 +57,9 @@ const MNEME_COMMANDS = new Set([
   "review",
   "auto",
   "server",
+  "up",
+  "down",
+  "ps",
   "version",
   "--version",
   "-v",
@@ -124,6 +127,21 @@ switch (command) {
     await server(args.slice(1));
     break;
   }
+  case "up": {
+    const { server } = await import("../src/commands/server.mjs");
+    await server(["start", ...args.slice(1)]);
+    break;
+  }
+  case "down": {
+    const { server } = await import("../src/commands/server.mjs");
+    await server(["stop", ...args.slice(1)]);
+    break;
+  }
+  case "ps": {
+    const { server } = await import("../src/commands/server.mjs");
+    await server(["status", ...args.slice(1)]);
+    break;
+  }
   case "version":
   case "--version":
   case "-v":
@@ -152,11 +170,11 @@ Usage:
   mneme status                  Show three-layer memory dashboard
   mneme compact                 Pre-compaction persistence check
 
-  ${bold("Dolt server:")}
-  mneme server start            Start the dolt server
-  mneme server stop             Stop the dolt server
-  mneme server status           Show server status (port, PID, data-dir)
-  mneme server restart          Restart the dolt server
+  ${bold("Servers (dolt + opencode):")}
+  mneme up    [TARGET]          Start server(s)   (TARGET: dolt|opencode|all)
+  mneme down  [TARGET]          Stop server(s)
+  mneme ps    [TARGET]          Show server status
+  mneme server restart [TARGET] Restart server(s)
 
   ${bold("Task management (beads):")}
   mneme ready                   Show tasks with no blockers
@@ -169,9 +187,11 @@ Usage:
   mneme dep add <child> <parent>  Add dependency
 
   ${bold("AI agent (opencode):")}
-  mneme auto                    Autonomous agent supervisor loop
+  mneme auto                    Dual-agent autonomous supervisor loop
   mneme auto "Build auth"       Start with a specific goal
   mneme auto --attach URL       Attach to existing server
+  mneme auto --planner MODEL    Override planner model (default: gpt-5.2)
+  mneme auto --executor MODEL   Override executor model (default: claude-opus-4.6)
   mneme start                   Start opencode TUI (same as bare mneme)
   mneme run [message..]         Run opencode non-interactively
   mneme web                     Start web interface

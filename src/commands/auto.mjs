@@ -1,28 +1,42 @@
 /**
- * mneme auto — Autonomous agent supervisor loop.
+ * mneme auto — Dual-agent autonomous supervisor loop.
  *
- * Starts an opencode server (or attaches to existing), then continuously:
- *   1. Picks the highest-priority unblocked bead from `mneme ready`
- *   2. Composes a prompt with bead context + Ledger facts
- *   3. Sends it to opencode via HTTP API
- *   4. Streams progress to terminal
- *   5. Accepts user input at any time (queued, injected between turns)
- *   6. Updates bead status based on results
- *   7. Picks next bead and repeats
+ * Uses two agents in the same opencode session:
+ *   - Planner (default: gpt-5.2): analyzes goal, breaks down tasks, reviews results
+ *   - Executor (default: claude-opus-4.6): writes code, runs commands, implements changes
+ *
+ * The planner and executor alternate turns via per-message model switching.
+ * Both see the full conversation history within the same session.
+ *
+ * Flow per cycle:
+ *   1. Planner: receives goal/context → outputs structured instructions
+ *   2. Executor: receives planner's instructions → implements changes
+ *   3. Planner: reviews executor's output → more instructions or "DONE"
+ *   4. Repeat until planner says done or user intervenes
  *
  * Usage:
- *   mneme auto                    # Auto-pick from ready beads
- *   mneme auto "Build auth module" # Start with a specific goal
- *   mneme auto --attach http://localhost:4096  # Attach to existing server
- *   mneme auto --port 4096        # Use specific port for server
+ *   mneme auto                              # Auto-pick from ready beads
+ *   mneme auto "Build auth module"          # Start with a specific goal
+ *   mneme auto --attach http://localhost:4096
+ *   mneme auto --port 4096
+ *   mneme auto --planner github-copilot/gpt-5.2  --executor github-copilot/claude-opus-4.6
  */
 
-import { spawn } from "node:child_process";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { createClient } from "../opencode-client.mjs";
+import {
+  startOpencodeServer,
+  attachOpencodeServer,
+  parseModelSpec,
+  stopOpencodeServer,
+} from "../opencode-server.mjs";
 import { color, log, run, has } from "../utils.mjs";
+
+// ── Default models ──────────────────────────────────────────────────────────
+
+const DEFAULT_PLANNER = "github-copilot/gpt-5.2";
+const DEFAULT_EXECUTOR = "github-copilot/claude-opus-4.6";
 
 // ── Argument parsing ────────────────────────────────────────────────────────
 
@@ -30,8 +44,10 @@ function parseArgs(argv) {
   const opts = {
     goal: null,
     attach: null,
-    port: 4097, // default port for auto mode server
-    maxTurns: 100, // safety limit
+    port: 4097,
+    maxCycles: 50, // planner-executor cycles
+    planner: DEFAULT_PLANNER,
+    executor: DEFAULT_EXECUTOR,
   };
   const positional = [];
 
@@ -40,13 +56,24 @@ function parseArgs(argv) {
     if (arg === "--attach" && argv[i + 1]) {
       opts.attach = argv[++i];
     } else if (arg.startsWith("--attach=")) {
-      opts.attach = arg.split("=")[1];
+      opts.attach = arg.split("=").slice(1).join("=");
     } else if (arg === "--port" && argv[i + 1]) {
       opts.port = parseInt(argv[++i], 10);
     } else if (arg.startsWith("--port=")) {
       opts.port = parseInt(arg.split("=")[1], 10);
-    } else if (arg === "--max-turns" && argv[i + 1]) {
-      opts.maxTurns = parseInt(argv[++i], 10);
+    } else if (arg === "--max-cycles" && argv[i + 1]) {
+      opts.maxCycles = parseInt(argv[++i], 10);
+    } else if (arg === "--planner" && argv[i + 1]) {
+      opts.planner = argv[++i];
+    } else if (arg.startsWith("--planner=")) {
+      opts.planner = arg.split("=").slice(1).join("=");
+    } else if (arg === "--executor" && argv[i + 1]) {
+      opts.executor = argv[++i];
+    } else if (arg.startsWith("--executor=")) {
+      opts.executor = arg.split("=").slice(1).join("=");
+    } else if (arg === "--help" || arg === "-h") {
+      showHelp();
+      process.exit(0);
     } else if (!arg.startsWith("-")) {
       positional.push(arg);
     }
@@ -59,105 +86,44 @@ function parseArgs(argv) {
   return opts;
 }
 
-// ── Server lifecycle ────────────────────────────────────────────────────────
+function showHelp() {
+  console.log(`
+${color.bold("mneme auto")} — Dual-agent autonomous supervisor
 
-/**
- * Start opencode serve as a child process.
- * Returns { client, serverProcess, url }.
- */
-async function startServer(port) {
-  log.info(`Starting opencode server on port ${port}...`);
+Usage:
+  mneme auto                         Auto-pick from ready beads
+  mneme auto "Build auth module"     Start with a specific goal
+  mneme auto --attach URL            Attach to existing server
+  mneme auto --port PORT             Use specific port (default: 4097)
 
-  const serverProcess = spawn("opencode", ["serve", "--port", String(port)], {
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: false,
-  });
+Options:
+  --planner MODEL    Planner model (default: ${DEFAULT_PLANNER})
+  --executor MODEL   Executor model (default: ${DEFAULT_EXECUTOR})
+  --max-cycles N     Max planner-executor cycles (default: 50)
+  --attach URL       Attach to running opencode server
+  --port PORT        Port for auto-started server
 
-  // Capture server output for debugging
-  let serverOutput = "";
-  serverProcess.stdout.on("data", (d) => {
-    serverOutput += d.toString();
-  });
-  serverProcess.stderr.on("data", (d) => {
-    serverOutput += d.toString();
-  });
-
-  const url = `http://127.0.0.1:${port}`;
-  const client = createClient(url);
-
-  // Wait for server to be ready (poll health endpoint)
-  const maxWait = 30_000;
-  const start = Date.now();
-  while (Date.now() - start < maxWait) {
-    try {
-      const health = await client.health();
-      if (health && health.healthy) {
-        log.ok(`Server ready at ${url} (opencode ${health.version})`);
-        return { client, serverProcess, url };
-      }
-    } catch {
-      // Not ready yet
-    }
-    await sleep(500);
-  }
-
-  serverProcess.kill();
-  throw new Error(
-    `Server failed to start within ${maxWait / 1000}s.\n${serverOutput}`,
-  );
-}
-
-/**
- * Attach to an existing opencode server.
- */
-async function attachServer(baseUrl) {
-  log.info(`Attaching to server at ${baseUrl}...`);
-  const client = createClient(baseUrl);
-
-  try {
-    const health = await client.health();
-    if (!health || !health.healthy) {
-      throw new Error("Server unhealthy");
-    }
-    log.ok(`Attached to ${baseUrl} (opencode ${health.version})`);
-    return { client, serverProcess: null, url: baseUrl };
-  } catch (err) {
-    throw new Error(`Cannot connect to ${baseUrl}: ${err.message}`);
-  }
+Commands while running:
+  Type any message   Inject feedback (sent to planner next turn)
+  /status            Show bead status
+  /skip              Skip current bead
+  /abort             Abort current turn
+  /quit              Stop and exit
+`);
 }
 
 // ── Bead management ─────────────────────────────────────────────────────────
 
-/**
- * Get ready beads (unblocked, open). Returns parsed list or [].
- */
 function getReadyBeads() {
   const output = run("bd ready --json");
   if (!output) return [];
   try {
     return JSON.parse(output);
   } catch {
-    // Fallback: parse text output
     return parseBeadText(run("bd ready") || "");
   }
 }
 
-/**
- * Get all open beads.
- */
-function getOpenBeads() {
-  const output = run("bd list --status=open --json");
-  if (!output) return [];
-  try {
-    return JSON.parse(output);
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Get in-progress beads.
- */
 function getInProgressBeads() {
   const output = run("bd list --status=in_progress --json");
   if (!output) return [];
@@ -168,16 +134,20 @@ function getInProgressBeads() {
   }
 }
 
-/**
- * Get bead details.
- */
+function getOpenBeads() {
+  const output = run("bd list --status=open --json");
+  if (!output) return [];
+  try {
+    return JSON.parse(output);
+  } catch {
+    return [];
+  }
+}
+
 function getBeadDetails(id) {
   return run(`bd show ${id}`) || "";
 }
 
-/**
- * Parse text output from bd (fallback when --json fails).
- */
 function parseBeadText(text) {
   if (!text || text.includes("No ready work")) return [];
   return text
@@ -192,13 +162,9 @@ function parseBeadText(text) {
 
 // ── Prompt composition ──────────────────────────────────────────────────────
 
-/**
- * Read Ledger facts as context string.
- */
 function readFacts() {
   const factsDir = ".ledger/facts";
   if (!existsSync(factsDir)) return "";
-
   const files = readdirSync(factsDir).filter((f) => f.endsWith(".md"));
   const parts = [];
   for (const file of files) {
@@ -208,9 +174,6 @@ function readFacts() {
   return parts.join("\n\n---\n\n");
 }
 
-/**
- * Read AGENTS.md
- */
 function readAgentsRules() {
   if (existsSync("AGENTS.md")) {
     return readFileSync("AGENTS.md", "utf-8");
@@ -219,77 +182,125 @@ function readAgentsRules() {
 }
 
 /**
- * Build the system context for the session.
- * This is sent as the first message to establish context.
+ * Build the initial system context (sent as first message, noReply).
  */
-function buildSystemContext() {
-  const facts = readFacts();
+function buildSystemContext(opts) {
+  let ctx = "# Session Context (injected by mneme auto)\n\n";
+  ctx +=
+    "This session uses a dual-agent architecture:\n";
+  ctx += `  - **Planner** (${opts.planner}): analyzes goals, breaks down tasks, reviews results, decides next steps\n`;
+  ctx += `  - **Executor** (${opts.executor}): implements code changes, runs commands, updates beads\n\n`;
+  ctx +=
+    "The planner and executor alternate turns. Both agents can see the full conversation.\n";
+  ctx +=
+    "The planner should output structured instructions. The executor should follow them.\n\n";
+
   const agents = readAgentsRules();
-
-  let context = "# Session Context (injected by mneme auto)\n\n";
-  context +=
-    "You are running in autonomous mode under mneme supervision.\n";
-  context +=
-    "mneme will feed you tasks from the beads system. Complete each task, then report what you did.\n";
-  context +=
-    "Use `mneme update <id> --notes=\"...\"` to record progress.\n";
-  context +=
-    "Use `mneme close <id> --reason=\"...\"` when a task is done.\n";
-  context += "Use `mneme create --title=\"...\" ...` for newly discovered subtasks.\n\n";
-
   if (agents) {
-    context += "## Agent Rules (AGENTS.md)\n\n";
-    context += agents + "\n\n";
+    ctx += "## Agent Rules (AGENTS.md)\n\n" + agents + "\n\n";
   }
 
+  const facts = readFacts();
   if (facts) {
-    context += "## Long-term Facts (Ledger)\n\n";
-    context += facts + "\n\n";
+    ctx += "## Long-term Facts (Ledger)\n\n" + facts + "\n\n";
   }
 
-  return context;
+  return ctx;
 }
 
 /**
- * Build prompt for working on a specific bead.
+ * Build the planner's initial prompt for a bead.
  */
-function buildBeadPrompt(beadId) {
+function buildPlannerBeadPrompt(beadId) {
   const details = getBeadDetails(beadId);
-  let prompt = `## Current Task\n\n`;
-  prompt += `Work on the following bead. Here are its details:\n\n`;
-  prompt += "```\n" + details + "\n```\n\n";
-  prompt += `Instructions:\n`;
-  prompt += `1. Understand the task from the description and notes above\n`;
-  prompt += `2. Implement the required changes\n`;
-  prompt += `3. Update progress with: mneme update ${beadId} --notes="your progress"\n`;
-  prompt += `4. If the task is complete, close it: mneme close ${beadId} --reason="completion summary"\n`;
-  prompt += `5. If you discover sub-tasks, create them: mneme create --title="..." --description="..." --type=task -p 2\n`;
-  prompt += `6. Commit your changes with a clear commit message\n`;
+  return `## Role: Planner
+
+You are the PLANNER. Your job is to analyze the task, break it into concrete steps, and give clear instructions to the Executor.
+
+## Current Task (Bead: ${beadId})
+
+\`\`\`
+${details}
+\`\`\`
+
+## Instructions
+
+1. Analyze this task carefully
+2. Break it into specific, actionable steps
+3. Give the Executor clear instructions for what to implement FIRST
+4. Be specific about file paths, function names, and expected behavior
+5. Use \`mneme update ${beadId} --notes="..."\` to track progress
+6. When the task is fully complete, include "TASK_DONE" in your response
+
+Output your plan and the first instruction for the Executor.`;
+}
+
+/**
+ * Build the planner's initial prompt for a user-specified goal.
+ */
+function buildPlannerGoalPrompt(goal) {
+  return `## Role: Planner
+
+You are the PLANNER. Your job is to analyze the goal, create a plan, and give clear instructions to the Executor.
+
+## Goal
+
+> ${goal}
+
+## Instructions
+
+1. Check existing beads with \`mneme ready\` and \`mneme list --status=open\`
+2. If this maps to an existing bead, claim it: \`mneme update <id> --status=in_progress\`
+3. If not, create a new bead: \`mneme create --title="..." --description="..." --type=task -p 2\`
+4. Break the goal into specific, actionable steps
+5. Give the Executor clear instructions for what to implement FIRST
+6. When all work is complete, include "TASK_DONE" in your response
+
+Output your plan and the first instruction for the Executor.`;
+}
+
+/**
+ * Build the planner's review prompt (after seeing executor results).
+ */
+function buildPlannerReviewPrompt(userFeedback) {
+  let prompt = `## Role: Planner
+
+Review the Executor's work above. Then decide:
+
+1. If more work is needed: give the next specific instruction for the Executor
+2. If there were errors: explain what went wrong and how to fix it
+3. If the task is fully complete: say "TASK_DONE" and summarize what was accomplished
+
+Be specific and actionable.`;
+
+  if (userFeedback) {
+    prompt += `\n\n## User Feedback\n\nThe user has provided input that takes priority:\n\n> ${userFeedback}\n\nIncorporate this into your next instruction.`;
+  }
+
   return prompt;
 }
 
 /**
- * Build prompt for a user-specified goal (no specific bead).
+ * Build the executor's prompt (wrapping the planner's output).
  */
-function buildGoalPrompt(goal) {
-  let prompt = `## Goal\n\n`;
-  prompt += `The user wants you to accomplish the following:\n\n`;
-  prompt += `> ${goal}\n\n`;
-  prompt += `Instructions:\n`;
-  prompt += `1. Check existing beads with \`mneme ready\` and \`mneme list --status=open\`\n`;
-  prompt += `2. If this goal maps to an existing bead, claim it: mneme update <id> --status=in_progress\n`;
-  prompt += `3. If not, create a new bead: mneme create --title="..." --description="..." --type=task -p 2\n`;
-  prompt += `4. Work on the goal step by step\n`;
-  prompt += `5. Update progress and close beads as you go\n`;
-  prompt += `6. Commit your changes\n`;
-  return prompt;
+function buildExecutorPrompt() {
+  return `## Role: Executor
+
+You are the EXECUTOR. Follow the Planner's instructions above.
+
+Rules:
+- Implement exactly what the Planner asked for
+- Run tests/builds if the Planner requested it
+- Use \`mneme update <id> --notes="..."\` to record progress
+- Use \`mneme close <id> --reason="..."\` when told the task is done
+- Commit changes with clear messages
+- Report what you did when finished so the Planner can review`;
 }
 
 // ── User input handling ─────────────────────────────────────────────────────
 
 /**
  * Non-blocking stdin reader with message queue.
- * User can type while the agent is working; messages are queued.
  */
 function createInputQueue() {
   const queue = [];
@@ -297,8 +308,7 @@ function createInputQueue() {
   let closed = false;
 
   function start() {
-    if (!process.stdin.isTTY) return; // non-interactive, skip
-
+    if (!process.stdin.isTTY) return;
     rl = createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -310,25 +320,24 @@ function createInputQueue() {
       if (!trimmed) return;
 
       if (trimmed === "/quit" || trimmed === "/exit" || trimmed === "/stop") {
+        console.log(color.dim("  → quitting after current turn..."));
         queue.push({ type: "quit" });
-        return;
-      }
-
-      if (trimmed === "/status") {
+      } else if (trimmed === "/status") {
         queue.push({ type: "status" });
-        return;
-      }
-
-      if (trimmed === "/skip") {
+      } else if (trimmed === "/skip") {
+        console.log(
+          color.dim("  → will skip current bead after this cycle"),
+        );
         queue.push({ type: "skip" });
-        return;
+      } else if (trimmed === "/abort") {
+        console.log(color.dim("  → aborting current turn..."));
+        queue.push({ type: "abort" });
+      } else {
+        queue.push({ type: "message", text: trimmed });
+        console.log(
+          color.dim("  → queued, will send to planner next cycle"),
+        );
       }
-
-      // Regular message → inject into session
-      queue.push({ type: "message", text: trimmed });
-      console.log(
-        color.dim(`  [queued] Will inject after current turn: "${trimmed}"`),
-      );
     });
 
     rl.on("close", () => {
@@ -337,8 +346,11 @@ function createInputQueue() {
   }
 
   function drain() {
-    const items = queue.splice(0);
-    return items;
+    return queue.splice(0);
+  }
+
+  function pushBack(item) {
+    queue.unshift(item);
   }
 
   function hasMessages() {
@@ -353,198 +365,302 @@ function createInputQueue() {
     closed = true;
   }
 
-  return { start, drain, hasMessages, stop, get closed() { return closed; } };
+  return {
+    start,
+    drain,
+    pushBack,
+    hasMessages,
+    stop,
+    get closed() {
+      return closed;
+    },
+  };
 }
 
-// ── Event display ───────────────────────────────────────────────────────────
+// ── Event display (streaming) ───────────────────────────────────────────────
 
 /**
- * Subscribe to SSE events and display agent progress.
- * Runs in background, returns a controller to stop.
+ * Subscribe to SSE events and display agent output in real-time.
+ * Returns an object with methods to control display and detect turn completion.
  */
 function createEventDisplay(client) {
   let running = false;
-  let iterator = null;
+  let turnResolve = null;
+  let currentRole = null; // "planner" | "executor" — for display prefixing
+
+  // Track incremental text and tool display state
+  const printedTextLengths = new Map();
+  const displayedToolStates = new Map();
 
   async function start() {
     running = true;
     try {
-      iterator = await client.events.subscribe();
+      const iterator = await client.events.subscribe();
       for await (const event of iterator) {
         if (!running) break;
-        displayEvent(event);
+        handleEvent(event);
       }
     } catch (err) {
       if (running) {
-        // Connection lost, not intentional stop
-        console.error(color.dim(`  [events] Stream ended: ${err.message}`));
+        console.error(
+          color.dim(`\n  [events] Stream ended: ${err.message}`),
+        );
       }
     }
   }
 
-  function displayEvent(event) {
+  function handleEvent(event) {
     const type = event.type || "";
     const props = event.properties || {};
 
-    // Only show interesting events, skip noise
-    if (type === "message.part.updated" && props.part) {
-      const part = props.part;
-      if (part.type === "text" && part.text) {
-        // Show last line of text as progress indicator
-        const lines = part.text.split("\n").filter((l) => l.trim());
-        if (lines.length > 0) {
-          const last = lines[lines.length - 1];
-          const truncated =
-            last.length > 100 ? last.slice(0, 100) + "..." : last;
-          process.stdout.write(`\r${color.dim("  > " + truncated)}  `);
+    switch (type) {
+      case "message.part.updated": {
+        if (!props.part) break;
+        const part = props.part;
+        const partId = part.id || `${props.messageID}-${props.index}`;
+
+        if (part.type === "text" && part.text) {
+          const prev = printedTextLengths.get(partId) || 0;
+          const newText = part.text.slice(prev);
+          if (newText) {
+            process.stdout.write(newText);
+            printedTextLengths.set(partId, part.text.length);
+          }
+        } else if (
+          part.type === "tool-invocation" ||
+          part.type === "tool-result"
+        ) {
+          displayToolPart(part, partId);
         }
-      } else if (part.type === "tool-invocation") {
-        const toolName = part.toolInvocation?.toolName || part.tool || "tool";
-        process.stdout.write(
-          `\r${color.dim(`  [${toolName}] working...`)}          `,
+        break;
+      }
+
+      case "session.updated": {
+        const status = props.session?.status || props.status;
+        if (status && status !== "running" && status !== "pending") {
+          if (turnResolve) {
+            turnResolve(status);
+            turnResolve = null;
+          }
+        }
+        break;
+      }
+
+      default:
+        break;
+    }
+  }
+
+  function displayToolPart(part, partId) {
+    const inv = part.toolInvocation || {};
+    const toolName = inv.toolName || part.tool || "tool";
+    const state = inv.state || part.state || "call";
+    const lastState = displayedToolStates.get(partId);
+
+    if (state === "call" && lastState !== "call") {
+      const argsStr = summarizeArgs(inv.args);
+      console.log(
+        `\n${color.bold(`  ⚡ ${toolName}`)}${argsStr ? color.dim(` ${argsStr}`) : ""}`,
+      );
+      displayedToolStates.set(partId, "call");
+    } else if (state === "result" && lastState !== "result") {
+      const result = inv.result ?? part.result ?? "";
+      const resultStr =
+        typeof result === "string" ? result : JSON.stringify(result);
+      if (resultStr) {
+        const lines = resultStr.split("\n");
+        const preview = lines.slice(0, 8);
+        if (lines.length > 8)
+          preview.push(
+            color.dim(`  ... (${lines.length - 8} more lines)`),
+          );
+        console.log(
+          color.dim(preview.map((l) => "  " + l).join("\n")),
         );
       }
-    } else if (type === "session.updated" && props.status === "completed") {
-      process.stdout.write("\n");
+      displayedToolStates.set(partId, "result");
     }
+  }
+
+  function summarizeArgs(args) {
+    if (!args) return "";
+    if (typeof args === "string") {
+      return args.length > 80 ? args.slice(0, 80) + "..." : args;
+    }
+    const pairs = [];
+    for (const [k, v] of Object.entries(args)) {
+      const val =
+        typeof v === "string"
+          ? v.length > 50
+            ? v.slice(0, 50) + "..."
+            : v
+          : JSON.stringify(v);
+      pairs.push(`${k}=${val}`);
+    }
+    const str = pairs.join(" ");
+    return str.length > 120 ? str.slice(0, 120) + "..." : str;
+  }
+
+  /**
+   * Wait for the current turn to complete via SSE.
+   * Returns a promise that resolves with the session status.
+   */
+  function waitForTurnEnd() {
+    return new Promise((resolve) => {
+      turnResolve = resolve;
+    });
+  }
+
+  function resetTurn(role) {
+    currentRole = role;
+    printedTextLengths.clear();
+    displayedToolStates.clear();
   }
 
   function stop() {
     running = false;
+    if (turnResolve) {
+      turnResolve("stopped");
+      turnResolve = null;
+    }
   }
 
-  return { start, stop };
+  return { start, stop, waitForTurnEnd, resetTurn };
+}
+
+// ── Turn execution ──────────────────────────────────────────────────────────
+
+/**
+ * Send a message and wait for the turn to complete.
+ * Handles /abort and /quit from input queue during execution.
+ *
+ * @returns {{ status: string, aborted: boolean, quit: boolean }}
+ */
+async function executeTurn(
+  client,
+  sessionId,
+  prompt,
+  modelSpec,
+  eventDisplay,
+  inputQueue,
+) {
+  eventDisplay.resetTurn();
+
+  const body = {
+    parts: [{ type: "text", text: prompt }],
+  };
+  if (modelSpec) {
+    body.model = modelSpec;
+  }
+
+  // Send async — returns immediately
+  await client.session.promptAsync(sessionId, body);
+
+  // Race: SSE turn completion vs user commands
+  return new Promise((resolve) => {
+    let resolved = false;
+
+    const done = (result) => {
+      if (resolved) return;
+      resolved = true;
+      clearInterval(pollId);
+      clearTimeout(safetyId);
+      resolve(result);
+    };
+
+    // SSE completion
+    eventDisplay.waitForTurnEnd().then((status) => {
+      done({ status, aborted: false, quit: false });
+    });
+
+    // Poll input queue for /abort, /quit
+    const pollId = setInterval(() => {
+      if (!inputQueue.hasMessages()) return;
+      const items = inputQueue.drain();
+      for (const item of items) {
+        if (item.type === "quit") {
+          client.session.abort(sessionId).catch(() => {});
+          done({ status: "quit", aborted: false, quit: true });
+          return;
+        }
+        if (item.type === "abort") {
+          client.session.abort(sessionId).catch(() => {});
+          done({ status: "aborted", aborted: true, quit: false });
+          return;
+        }
+        if (item.type === "status") {
+          showBeadStatus();
+        }
+        if (item.type === "message" || item.type === "skip") {
+          // Re-queue for processing between cycles
+          inputQueue.pushBack(item);
+        }
+      }
+    }, 200);
+
+    // Safety timeout: poll session status after 10 minutes
+    const safetyId = setTimeout(async () => {
+      if (resolved) return;
+      try {
+        // Try listing sessions and checking status
+        const sessions = await client.session.list();
+        const session = sessions?.find?.((s) => s.id === sessionId);
+        const s = session?.status;
+        if (s && s !== "running" && s !== "pending") {
+          done({ status: s, aborted: false, quit: false });
+        }
+      } catch {
+        // ignore
+      }
+    }, 600_000);
+  });
+}
+
+function showBeadStatus() {
+  console.log(`\n${color.bold("── Status ──")}`);
+  const ready = run("bd ready") || "  (none)";
+  const inProgress = run("bd list --status=in_progress") || "  (none)";
+  console.log(`  ${color.bold("Ready:")} ${ready}`);
+  console.log(`  ${color.bold("In Progress:")} ${inProgress}`);
+  console.log("");
 }
 
 // ── Supervisor loop ─────────────────────────────────────────────────────────
 
-/**
- * Main supervisor loop.
- */
 async function supervisorLoop(client, opts, inputQueue) {
-  // Create a session
+  const plannerModel = parseModelSpec(opts.planner);
+  const executorModel = parseModelSpec(opts.executor);
+
+  // Create session
   log.info("Creating session...");
   const session = await client.session.create({ title: "mneme auto" });
   const sessionId = session.id;
-  log.ok(`Session created: ${sessionId}`);
+  log.ok(`Session: ${sessionId}`);
 
-  // Send system context as first message (noReply — just inject context)
-  const systemContext = buildSystemContext();
-  await client.session.prompt(sessionId, {
-    noReply: true,
-    parts: [{ type: "text", text: systemContext }],
-  });
-  log.ok("System context injected");
-
-  // Start event display
+  // Start SSE event display
   const eventDisplay = createEventDisplay(client);
-  // Run in background (don't await)
   eventDisplay.start().catch(() => {});
 
-  let turnCount = 0;
-
-  // Determine first prompt
-  let nextPrompt = null;
-  if (opts.goal) {
-    nextPrompt = buildGoalPrompt(opts.goal);
+  // Inject system context (noReply)
+  const systemContext = buildSystemContext(opts);
+  try {
+    await client.session.prompt(sessionId, {
+      noReply: true,
+      parts: [{ type: "text", text: systemContext }],
+    });
+    log.ok("Context injected");
+  } catch (err) {
+    log.warn(`Context injection: ${err.message}`);
   }
 
+  let cycle = 0;
+
   try {
-    while (turnCount < opts.maxTurns) {
-      // If no prompt queued, pick a bead
-      if (!nextPrompt) {
-        // Check in-progress beads first (resume)
-        const inProgress = getInProgressBeads();
-        if (inProgress.length > 0) {
-          const bead = inProgress[0];
-          const beadId = bead.id || bead.raw?.match(/([\w-]+)/)?.[1];
-          if (beadId) {
-            log.info(`Resuming in-progress bead: ${beadId}`);
-            nextPrompt = buildBeadPrompt(beadId);
-          }
-        }
-      }
+    while (cycle < opts.maxCycles) {
+      // ── Process queued user commands between cycles ──
+      let userFeedback = null;
+      let shouldSkip = false;
 
-      if (!nextPrompt) {
-        // Check ready beads
-        const ready = getReadyBeads();
-        if (ready.length === 0) {
-          log.info("No ready beads. Checking if there's open work...");
-          const open = getOpenBeads();
-          if (open.length === 0) {
-            log.ok("All beads completed! Nothing left to do.");
-            break;
-          } else {
-            log.warn(
-              `${open.length} open bead(s) but all blocked. Waiting for user input...`,
-            );
-            // Wait for user to provide direction
-            await waitForInput(inputQueue);
-            const items = inputQueue.drain();
-            const msg = items.find((i) => i.type === "message");
-            if (msg) {
-              nextPrompt = msg.text;
-            }
-            const quit = items.find((i) => i.type === "quit");
-            if (quit) break;
-            if (!nextPrompt) continue;
-          }
-        } else {
-          const bead = ready[0];
-          const beadId = bead.id || bead.raw?.match(/([\w-]+)/)?.[1];
-          if (beadId) {
-            // Claim it
-            run(`bd update ${beadId} --status=in_progress`);
-            log.info(`Picked bead: ${beadId}`);
-            nextPrompt = buildBeadPrompt(beadId);
-          }
-        }
-      }
-
-      if (!nextPrompt) {
-        log.warn("No task available. Waiting...");
-        await sleep(5000);
-        continue;
-      }
-
-      // Send prompt
-      turnCount++;
-      console.log(
-        `\n${color.bold(`── Turn ${turnCount} ──────────────────────────────`)}`,
-      );
-
-      try {
-        const result = await client.session.prompt(sessionId, {
-          parts: [{ type: "text", text: nextPrompt }],
-        });
-
-        // Show response summary
-        if (result && result.parts) {
-          const textParts = result.parts.filter((p) => p.type === "text");
-          if (textParts.length > 0) {
-            const fullText = textParts.map((p) => p.text).join("\n");
-            // Show last ~500 chars as summary
-            const summary =
-              fullText.length > 500
-                ? "..." + fullText.slice(-500)
-                : fullText;
-            console.log(color.dim("\n  Response summary:"));
-            console.log(
-              summary
-                .split("\n")
-                .map((l) => "  " + l)
-                .join("\n"),
-            );
-          }
-        }
-      } catch (err) {
-        log.fail(`Turn failed: ${err.message}`);
-        // Don't abort the loop — maybe next turn works
-      }
-
-      nextPrompt = null;
-
-      // Process queued user input
       if (inputQueue.hasMessages()) {
         const items = inputQueue.drain();
         for (const item of items) {
@@ -553,37 +669,195 @@ async function supervisorLoop(client, opts, inputQueue) {
             return;
           }
           if (item.type === "skip") {
-            log.info("Skipping current bead...");
-            nextPrompt = null; // will pick next bead
+            shouldSkip = true;
           }
           if (item.type === "status") {
-            showStatus();
+            showBeadStatus();
           }
           if (item.type === "message") {
-            log.info(`Injecting user message: "${item.text}"`);
-            nextPrompt = `## User Feedback\n\nThe user has provided the following input. Prioritize this over your current task plan:\n\n> ${item.text}\n\nAdjust your approach accordingly and continue working.`;
+            userFeedback = item.text;
           }
         }
       }
 
-      // Small pause between turns to avoid hammering
+      if (shouldSkip) {
+        log.info("Skipping current bead...");
+        // Fall through to pick next bead
+      }
+
+      // ── Pick a task (first cycle or after skip) ──
+      let plannerPrompt = null;
+
+      if (cycle === 0) {
+        // First cycle: use goal or pick a bead
+        if (opts.goal) {
+          plannerPrompt = buildPlannerGoalPrompt(opts.goal);
+        } else {
+          plannerPrompt = pickBeadForPlanner();
+        }
+      } else {
+        // Subsequent cycles: planner reviews executor's work
+        plannerPrompt = buildPlannerReviewPrompt(userFeedback);
+      }
+
+      if (!plannerPrompt) {
+        // No work available
+        const open = getOpenBeads();
+        if (open.length === 0) {
+          log.ok("All beads completed! Nothing left to do.");
+          break;
+        }
+        log.warn("All beads blocked. Waiting for user input...");
+        console.log(color.dim("  Type a message or /quit to exit."));
+        await waitForInput(inputQueue);
+        continue;
+      }
+
+      cycle++;
+
+      // ── Planner turn ──
+      console.log(
+        `\n${color.bold(`── Cycle ${cycle} · Planner`)} ${color.dim(`(${opts.planner})`)} ${color.bold("────────────────────")}`,
+      );
+
+      eventDisplay.resetTurn("planner");
+      const plannerResult = await executeTurn(
+        client,
+        sessionId,
+        plannerPrompt,
+        plannerModel,
+        eventDisplay,
+        inputQueue,
+      );
+      console.log(""); // newline after output
+
+      if (plannerResult.quit) {
+        log.info("User requested quit.");
+        return;
+      }
+      if (plannerResult.aborted) {
+        log.info("Planner turn aborted.");
+        continue;
+      }
+
+      // Check if planner said TASK_DONE — we need to read the last message
+      // from the session to see the planner's output
+      let plannerSaidDone = false;
+      try {
+        const messages = await client.session.messages(sessionId);
+        if (messages && messages.length > 0) {
+          const lastMsg = messages[messages.length - 1];
+          const text = extractMessageText(lastMsg);
+          if (text.includes("TASK_DONE")) {
+            plannerSaidDone = true;
+          }
+        }
+      } catch {
+        // Can't check, proceed with executor turn
+      }
+
+      if (plannerSaidDone) {
+        log.ok("Planner declared task complete.");
+        // Pick next bead on next cycle
+        cycle = 0; // reset cycle counter for next task
+        const nextBead = pickBeadForPlanner();
+        if (!nextBead) {
+          log.ok("No more tasks. Finished.");
+          break;
+        }
+        // plannerPrompt for next iteration will be set at top of loop
+        continue;
+      }
+
+      // ── Executor turn ──
+      console.log(
+        `\n${color.bold(`── Cycle ${cycle} · Executor`)} ${color.dim(`(${opts.executor})`)} ${color.bold("───────────────────")}`,
+      );
+
+      const executorPrompt = buildExecutorPrompt();
+      eventDisplay.resetTurn("executor");
+      const executorResult = await executeTurn(
+        client,
+        sessionId,
+        executorPrompt,
+        executorModel,
+        eventDisplay,
+        inputQueue,
+      );
+      console.log(""); // newline after output
+
+      if (executorResult.quit) {
+        log.info("User requested quit.");
+        return;
+      }
+      if (executorResult.aborted) {
+        log.info("Executor turn aborted.");
+        // Planner will review on next cycle
+      }
+
+      // Small pause between cycles
       await sleep(1000);
     }
 
-    if (turnCount >= opts.maxTurns) {
-      log.warn(`Reached max turns (${opts.maxTurns}). Stopping.`);
+    if (cycle >= opts.maxCycles) {
+      log.warn(`Reached max cycles (${opts.maxCycles}). Stopping.`);
     }
   } finally {
     eventDisplay.stop();
   }
 }
 
-function showStatus() {
-  console.log(`\n${color.bold("── Status ──")}`);
-  const ready = run("bd ready") || "  (none)";
-  const inProgress = run("bd list --status=in_progress") || "  (none)";
-  console.log(`  ${color.bold("Ready:")} ${ready}`);
-  console.log(`  ${color.bold("In Progress:")} ${inProgress}`);
+/**
+ * Try to pick a bead and return a planner prompt for it.
+ * Returns null if no beads available.
+ */
+function pickBeadForPlanner() {
+  // Check in-progress first
+  const inProgress = getInProgressBeads();
+  if (inProgress.length > 0) {
+    const beadId = extractBeadId(inProgress[0]);
+    if (beadId) {
+      log.info(`Resuming: ${beadId}`);
+      return buildPlannerBeadPrompt(beadId);
+    }
+  }
+
+  // Check ready beads
+  const ready = getReadyBeads();
+  if (ready.length === 0) return null;
+
+  const beadId = extractBeadId(ready[0]);
+  if (!beadId) return null;
+
+  // Claim it
+  run(`bd update ${beadId} --status=in_progress`);
+  log.info(`Picked: ${beadId}`);
+  return buildPlannerBeadPrompt(beadId);
+}
+
+function extractBeadId(bead) {
+  return bead.id || bead.raw?.match(/([\w-]+)/)?.[1] || null;
+}
+
+function extractMessageText(msg) {
+  if (!msg) return "";
+  if (typeof msg === "string") return msg;
+  if (msg.content) {
+    if (typeof msg.content === "string") return msg.content;
+    if (Array.isArray(msg.content)) {
+      return msg.content
+        .filter((p) => p.type === "text")
+        .map((p) => p.text || "")
+        .join("\n");
+    }
+  }
+  if (msg.parts) {
+    return msg.parts
+      .filter((p) => p.type === "text")
+      .map((p) => p.text || "")
+      .join("\n");
+  }
+  return "";
 }
 
 async function waitForInput(inputQueue) {
@@ -597,30 +871,50 @@ async function waitForInput(inputQueue) {
 export async function auto(argv) {
   const opts = parseArgs(argv);
 
-  // Preflight checks
   if (!has("opencode")) {
-    log.fail("opencode is not installed. Run: curl -fsSL https://opencode.ai/install | bash");
-    process.exit(1);
-  }
-  if (!has("bd")) {
-    log.fail("bd (beads) is not installed. Run: mneme init");
+    log.fail(
+      "opencode is not installed. Run: curl -fsSL https://opencode.ai/install | bash",
+    );
     process.exit(1);
   }
 
-  console.log(`\n${color.bold("mneme auto")} — autonomous agent supervisor\n`);
+  console.log(
+    `\n${color.bold("mneme auto")} — dual-agent autonomous supervisor\n`,
+  );
+  console.log(
+    `  ${color.bold("Planner:")}  ${opts.planner}`,
+  );
+  console.log(
+    `  ${color.bold("Executor:")} ${opts.executor}\n`,
+  );
   console.log(color.dim("Commands while running:"));
-  console.log(color.dim("  Type any message  → inject feedback into agent"));
+  console.log(
+    color.dim("  Type any message  → inject feedback to planner"),
+  );
   console.log(color.dim("  /status           → show bead status"));
   console.log(color.dim("  /skip             → skip current bead"));
+  console.log(color.dim("  /abort            → abort current turn"));
   console.log(color.dim("  /quit             → stop and exit\n"));
 
   // Start or attach to server
   let serverCtx;
   try {
     if (opts.attach) {
-      serverCtx = await attachServer(opts.attach);
+      serverCtx = await attachOpencodeServer(opts.attach);
+      log.ok(
+        `Attached to ${serverCtx.url} (v${serverCtx.version})`,
+      );
     } else {
-      serverCtx = await startServer(opts.port);
+      serverCtx = await startOpencodeServer({ port: opts.port });
+      if (serverCtx.alreadyRunning) {
+        log.ok(
+          `Server already running at ${serverCtx.url} (v${serverCtx.version})`,
+        );
+      } else {
+        log.ok(
+          `Server started at ${serverCtx.url} (v${serverCtx.version})`,
+        );
+      }
     }
   } catch (err) {
     log.fail(err.message);
@@ -638,7 +932,7 @@ export async function auto(argv) {
     log.fail(`Supervisor error: ${err.message}`);
   } finally {
     inputQueue.stop();
-    // Kill server if we started it
+    // Only kill server if WE started it
     if (serverCtx.serverProcess) {
       log.info("Shutting down server...");
       serverCtx.serverProcess.kill("SIGTERM");
