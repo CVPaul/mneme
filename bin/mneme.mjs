@@ -4,7 +4,7 @@
  * mneme CLI — Three-layer memory architecture for AI coding agents.
  *
  * Unified entry point that routes to:
- *   1. mneme's own commands (init, doctor, status, compact, facts, propose, review)
+ *   1. mneme's own commands (init, doctor, status, compact, facts, propose, review, auto)
  *   2. opencode commands (run, web, serve, etc.) — default fallback
  *   3. bd/beads commands (ready, list, create, close, etc.)
  *
@@ -55,6 +55,7 @@ const MNEME_COMMANDS = new Set([
   "facts",
   "propose",
   "review",
+  "auto",
   "version",
   "--version",
   "-v",
@@ -112,6 +113,11 @@ switch (command) {
     await review(args.slice(1));
     break;
   }
+  case "auto": {
+    const { auto } = await import("../src/commands/auto.mjs");
+    await auto(args.slice(1));
+    break;
+  }
   case "version":
   case "--version":
   case "-v":
@@ -151,6 +157,9 @@ Usage:
   mneme dep add <child> <parent>  Add dependency
 
   ${bold("AI agent (opencode):")}
+  mneme auto                    Autonomous agent supervisor loop
+  mneme auto "Build auth"       Start with a specific goal
+  mneme auto --attach URL       Attach to existing server
   mneme start                   Start opencode TUI (same as bare mneme)
   mneme run [message..]         Run opencode non-interactively
   mneme web                     Start web interface

@@ -10,7 +10,7 @@
 
 ```bash
 # 安装
-npm install -g @xqli/mneme
+npm install -g @xqli02/mneme
 
 # 在任意项目目录下初始化
 mkdir my-project && cd my-project
@@ -54,10 +54,42 @@ mneme update <id> --notes="进度说明"  # 更新任务
 mneme close <id> --reason="完成"      # 关闭任务
 
 # OpenCode — AI agent（opencode 透传）
+mneme auto                # 自主 agent 监督循环（自动选取任务）
+mneme auto "fix the bug"  # 指定目标启动
+mneme auto --attach URL   # 连接已有 opencode 服务
 mneme run "fix the bug"   # 非交互模式运行
 mneme web                 # 启动 Web 界面
 mneme serve               # 启动 headless server
 ```
+
+---
+
+## 自主模式 (`mneme auto`)
+
+`mneme auto` 启动一个自主 agent 监督循环，自动从 beads 中选取任务并驱动 opencode 完成：
+
+```bash
+mneme auto                          # 自动从 ready beads 中选取任务
+mneme auto "Build auth module"      # 以指定目标启动
+mneme auto --attach http://localhost:4097  # 连接已有 opencode 服务
+mneme auto --port 4097              # 指定服务端口
+mneme auto --max-turns 50           # 限制最大轮次
+```
+
+运行时可随时输入：
+- **任意文本** — 在下一轮注入反馈给 agent
+- `/status` — 查看当前任务状态
+- `/skip` — 跳过当前 bead
+- `/quit` — 停止并退出
+
+工作流程：
+1. 启动（或连接）opencode serve 后端
+2. 注入系统上下文（AGENTS.md + OpenClaw facts）
+3. 从 `mneme ready` 选取最高优先级 bead
+4. Claim bead → 构造 prompt → 发送给 opencode
+5. 流式展示 agent 进度
+6. 完成后自动选取下一个 bead
+7. 无可执行 bead 时等待用户输入
 
 ---
 

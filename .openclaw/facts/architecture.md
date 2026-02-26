@@ -82,7 +82,7 @@ mneme/
 
 ## 技术依赖
 
-- **mneme**: `npm install -g @xqli/mneme` — 统一 CLI 入口
+- **mneme**: `npm install -g @xqli02/mneme` — 统一 CLI 入口
 - **bd** (beads CLI): 任务管理后端，由 mneme 内部调用
 - **Dolt**: bd 的后端数据库，由 bd 自动管理
 - **Git**: 版本控制与协作基础

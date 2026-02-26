@@ -1,5 +1,5 @@
 {
-  "name": "@xqli/mneme",
+  "name": "@xqli02/mneme",
   "version": "0.1.0",
   "description": "Three-layer memory architecture for AI coding agents (OpenClaw + Beads + OpenCode)",
   "type": "module",
