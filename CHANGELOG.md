@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.3
+
+- Rename Layer 1 from "OpenClaw" to "Ledger" (`.openclaw/` -> `.ledger/`) across all code, templates, and documentation
+- Add Chinese locale support: `mneme init cn` scaffolds Chinese templates for AGENTS.md, prompt, and facts files
+- Add tagline to README
+
 ## v0.1.2
 
 - Fix multi-workspace Dolt isolation: use shared `$HOME/.dolt/databases` as data-dir with per-project database names (`beads_<project>`), preventing cross-project data leakage when multiple projects run on the same port
