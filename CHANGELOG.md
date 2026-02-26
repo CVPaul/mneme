@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.2
+
+- Fix multi-workspace Dolt isolation: use shared `$HOME/.dolt/databases` as data-dir with per-project database names (`beads_<project>`), preventing cross-project data leakage when multiple projects run on the same port
+- Support `MNEME_DOLT_DATA_DIR` and `MNEME_DOLT_PORT` environment variable overrides
+- `mneme doctor` now displays which database the current project uses
+
 ## v0.1.1
 
 - Translate all template files (`mneme init` scaffolding) from Chinese to English
