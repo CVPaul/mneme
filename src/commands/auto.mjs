@@ -382,11 +382,16 @@ function createInputQueue() {
 /**
  * Subscribe to SSE events and display agent output in real-time.
  * Returns an object with methods to control display and detect turn completion.
+ *
+ * Also tracks `lastOutputTime` so callers can detect stalls.
  */
 function createEventDisplay(client) {
   let running = false;
+  let connected = false;
   let turnResolve = null;
   let currentRole = null; // "planner" | "executor" — for display prefixing
+  let lastOutputTime = 0; // Date.now() of last SSE output
+  let hasReceivedAny = false; // true once any event arrives
 
   // Track incremental text and tool display state
   const printedTextLengths = new Map();
@@ -396,15 +401,26 @@ function createEventDisplay(client) {
     running = true;
     try {
       const iterator = await client.events.subscribe();
+      connected = true;
+      hasReceivedAny = false;
+      log.ok("SSE event stream connected");
       for await (const event of iterator) {
         if (!running) break;
+        if (!hasReceivedAny) hasReceivedAny = true;
         handleEvent(event);
       }
     } catch (err) {
+      connected = false;
       if (running) {
         console.error(
-          color.dim(`\n  [events] Stream ended: ${err.message}`),
+          color.dim(`\n  [events] Stream error: ${err.message}`),
         );
+        // Try to reconnect after a brief delay
+        await sleep(2000);
+        if (running) {
+          log.info("Reconnecting SSE...");
+          start().catch(() => {});
+        }
       }
     }
   }
@@ -425,12 +441,14 @@ function createEventDisplay(client) {
           if (newText) {
             process.stdout.write(newText);
             printedTextLengths.set(partId, part.text.length);
+            lastOutputTime = Date.now();
           }
         } else if (
           part.type === "tool-invocation" ||
           part.type === "tool-result"
         ) {
           displayToolPart(part, partId);
+          lastOutputTime = Date.now();
         }
         break;
       }
@@ -525,7 +543,15 @@ function createEventDisplay(client) {
     }
   }
 
-  return { start, stop, waitForTurnEnd, resetTurn };
+  return {
+    start,
+    stop,
+    waitForTurnEnd,
+    resetTurn,
+    get lastOutputTime() { return lastOutputTime; },
+    get connected() { return connected; },
+    get hasReceivedAny() { return hasReceivedAny; },
+  };
 }
 
 // ── Turn execution ──────────────────────────────────────────────────────────
@@ -533,6 +559,8 @@ function createEventDisplay(client) {
 /**
  * Send a message and wait for the turn to complete.
  * Handles /abort and /quit from input queue during execution.
+ * Prints heartbeat every 15s when no output is flowing.
+ * Warns at 30s of silence, auto-aborts at 120s of silence.
  *
  * @returns {{ status: string, aborted: boolean, quit: boolean }}
  */
@@ -556,15 +584,21 @@ async function executeTurn(
   // Send async — returns immediately
   await client.session.promptAsync(sessionId, body);
 
-  // Race: SSE turn completion vs user commands
+  const HEARTBEAT_INTERVAL = 15_000; // print elapsed every 15s of silence
+  const SILENCE_WARN = 30_000; // warn after 30s of no output
+  const SILENCE_ABORT = 120_000; // auto-abort after 120s of no output
+  const turnStartTime = Date.now();
+
+  // Race: SSE turn completion vs user commands vs silence timeout
   return new Promise((resolve) => {
     let resolved = false;
+    let warnedSilence = false;
 
     const done = (result) => {
       if (resolved) return;
       resolved = true;
       clearInterval(pollId);
-      clearTimeout(safetyId);
+      clearInterval(heartbeatId);
       resolve(result);
     };
 
@@ -572,6 +606,41 @@ async function executeTurn(
     eventDisplay.waitForTurnEnd().then((status) => {
       done({ status, aborted: false, quit: false });
     });
+
+    // Heartbeat: show elapsed time when no output is flowing
+    const heartbeatId = setInterval(() => {
+      if (resolved) return;
+      const now = Date.now();
+      const elapsed = Math.round((now - turnStartTime) / 1000);
+      const lastOut = eventDisplay.lastOutputTime;
+      const silenceMs = lastOut > 0 ? now - lastOut : now - turnStartTime;
+
+      // Silence auto-abort
+      if (silenceMs >= SILENCE_ABORT) {
+        console.log(
+          color.dim(`\n  ⏱ ${elapsed}s elapsed — no output for ${Math.round(silenceMs / 1000)}s, auto-aborting`),
+        );
+        client.session.abort(sessionId).catch(() => {});
+        done({ status: "aborted", aborted: true, quit: false });
+        return;
+      }
+
+      // Silence warning
+      if (silenceMs >= SILENCE_WARN && !warnedSilence) {
+        warnedSilence = true;
+        console.log(
+          color.dim(`\n  ⏱ ${elapsed}s elapsed — no output for ${Math.round(silenceMs / 1000)}s (will abort at ${SILENCE_ABORT / 1000}s)`),
+        );
+        return;
+      }
+
+      // Regular heartbeat (only when silent for >HEARTBEAT_INTERVAL)
+      if (silenceMs >= HEARTBEAT_INTERVAL) {
+        process.stdout.write(
+          color.dim(`  [${elapsed}s] `),
+        );
+      }
+    }, HEARTBEAT_INTERVAL);
 
     // Poll input queue for /abort, /quit
     const pollId = setInterval(() => {
@@ -597,22 +666,6 @@ async function executeTurn(
         }
       }
     }, 200);
-
-    // Safety timeout: poll session status after 10 minutes
-    const safetyId = setTimeout(async () => {
-      if (resolved) return;
-      try {
-        // Try listing sessions and checking status
-        const sessions = await client.session.list();
-        const session = sessions?.find?.((s) => s.id === sessionId);
-        const s = session?.status;
-        if (s && s !== "running" && s !== "pending") {
-          done({ status: s, aborted: false, quit: false });
-        }
-      } catch {
-        // ignore
-      }
-    }, 600_000);
   });
 }
 
@@ -630,6 +683,24 @@ function showBeadStatus() {
 async function supervisorLoop(client, opts, inputQueue) {
   const plannerModel = parseModelSpec(opts.planner);
   const executorModel = parseModelSpec(opts.executor);
+
+  // ── Validate models ──
+  log.info("Validating models...");
+  const modelsOutput = run("opencode models 2>/dev/null") || "";
+  const validateModel = (label, spec) => {
+    // Look for the model ID in the output; opencode models lists "provider/model"
+    if (modelsOutput && !modelsOutput.includes(spec)) {
+      log.fail(`${label} model "${spec}" not found in available models.`);
+      console.log(color.dim("  Available models:"));
+      for (const line of modelsOutput.split("\n").filter(l => l.trim())) {
+        console.log(color.dim(`    ${line.trim()}`));
+      }
+      throw new Error(`Invalid ${label.toLowerCase()} model: ${spec}`);
+    }
+  };
+  validateModel("Planner", opts.planner);
+  validateModel("Executor", opts.executor);
+  log.ok("Models validated");
 
   // Create session
   log.info("Creating session...");
@@ -720,6 +791,7 @@ async function supervisorLoop(client, opts, inputQueue) {
         `\n${color.bold(`── Cycle ${cycle} · Planner`)} ${color.dim(`(${opts.planner})`)} ${color.bold("────────────────────")}`,
       );
 
+      log.info(`Sending prompt to Planner (${opts.planner})...`);
       eventDisplay.resetTurn("planner");
       const plannerResult = await executeTurn(
         client,
@@ -775,6 +847,7 @@ async function supervisorLoop(client, opts, inputQueue) {
       );
 
       const executorPrompt = buildExecutorPrompt();
+      log.info(`Sending prompt to Executor (${opts.executor})...`);
       eventDisplay.resetTurn("executor");
       const executorResult = await executeTurn(
         client,

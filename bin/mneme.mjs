@@ -60,6 +60,7 @@ const MNEME_COMMANDS = new Set([
   "up",
   "down",
   "ps",
+  "restart",
   "version",
   "--version",
   "-v",
@@ -142,6 +143,11 @@ switch (command) {
     await server(["status", ...args.slice(1)]);
     break;
   }
+  case "restart": {
+    const { server } = await import("../src/commands/server.mjs");
+    await server(["restart", ...args.slice(1)]);
+    break;
+  }
   case "version":
   case "--version":
   case "-v":
@@ -171,10 +177,10 @@ Usage:
   mneme compact                 Pre-compaction persistence check
 
   ${bold("Servers (dolt + opencode):")}
-  mneme up    [TARGET]          Start server(s)   (TARGET: dolt|opencode|all)
-  mneme down  [TARGET]          Stop server(s)
-  mneme ps    [TARGET]          Show server status
-  mneme server restart [TARGET] Restart server(s)
+  mneme up      [TARGET]        Start server(s)   (TARGET: dolt|opencode|all)
+  mneme down    [TARGET]        Stop server(s)
+  mneme ps      [TARGET]        Show server status
+  mneme restart [TARGET]        Restart server(s)
 
   ${bold("Task management (beads):")}
   mneme ready                   Show tasks with no blockers

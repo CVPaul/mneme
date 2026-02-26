@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.9
+
+- `mneme auto` reliability improvements:
+  - Model validation at startup: verifies both planner and executor models exist before entering the supervisor loop; fails early with a clear error listing available models
+  - Heartbeat: prints elapsed time every 15s when no SSE output is flowing, so users know the process is alive
+  - No-output timeout: warns at 30s of silence, auto-aborts the turn at 120s (replaces the old 600s safety timeout)
+  - SSE connection tracking: exposes `lastOutputTime`, `connected`, and `hasReceivedAny` from event display for stall detection
+  - SSE auto-reconnect on stream error with 2s backoff
+  - Prints "Sending prompt to Planner/Executor..." before each turn so users see activity immediately
+- `mneme restart [TARGET]` promoted to top-level alias (was `mneme server restart`)
+
 ## v0.1.8
 
 - Dual-agent `mneme auto`: planner (gpt-5.2) breaks down tasks and reviews, executor (claude-opus-4.6) implements — both alternate in the same session via per-message model switching
