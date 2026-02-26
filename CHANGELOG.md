@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.11
+
+- **Fix: SSE event parsing** — opencode serve sends `{type, properties}` inside the `data:` JSON, not as separate SSE `event:` lines; parser now correctly extracts event type from JSON payload
+- **Fix: streaming text display** — handle `message.part.delta` events for real-time text output (was only handling `message.part.updated` which fires once at the end)
+- **Fix: turn completion detection** — listen for `session.status` events (busy→idle) instead of relying solely on `session.updated` which doesn't carry status
+- Added `message.updated` finish detection as backup for turn completion
+
 ## v0.1.10
 
 - **Fix: model validation uses real API probe** — `opencode models` lists theoretical models but the provider (e.g. GitHub Copilot) may reject them at runtime; now sends a real test prompt at startup and fails immediately if the model is unsupported

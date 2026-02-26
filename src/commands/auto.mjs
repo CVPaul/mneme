@@ -396,6 +396,7 @@ function createEventDisplay(client) {
   // Track incremental text and tool display state
   const printedTextLengths = new Map();
   const displayedToolStates = new Map();
+  const deltaParts = new Set(); // parts that received delta events
 
   async function start() {
     running = true;
@@ -430,36 +431,76 @@ function createEventDisplay(client) {
     const props = event.properties || {};
 
     switch (type) {
+      // ── Incremental text deltas (streaming) ──
+      case "message.part.delta": {
+        const partId = props.partID || props.partId;
+        if (partId) deltaParts.add(partId);
+        if (props.field === "text" && props.delta) {
+          process.stdout.write(props.delta);
+          lastOutputTime = Date.now();
+        }
+        break;
+      }
+
+      // ── Part snapshots (full text at end, tool states) ──
       case "message.part.updated": {
         if (!props.part) break;
         const part = props.part;
         const partId = part.id || `${props.messageID}-${props.index}`;
 
-        if (part.type === "text" && part.text) {
-          const prev = printedTextLengths.get(partId) || 0;
-          const newText = part.text.slice(prev);
-          if (newText) {
-            process.stdout.write(newText);
-            printedTextLengths.set(partId, part.text.length);
-            lastOutputTime = Date.now();
-          }
-        } else if (
+        if (
           part.type === "tool-invocation" ||
           part.type === "tool-result"
         ) {
           displayToolPart(part, partId);
           lastOutputTime = Date.now();
         }
+        // For text parts: we rely on message.part.delta for streaming,
+        // so only use updated as a fallback if we missed the deltas
+        if (part.type === "text" && part.text) {
+          const prev = printedTextLengths.get(partId) || 0;
+          if (prev === 0 && !deltaParts.has(partId)) {
+            // We never saw deltas for this part — print the full text
+            process.stdout.write(part.text);
+            lastOutputTime = Date.now();
+          }
+          printedTextLengths.set(partId, part.text.length);
+        }
         break;
       }
 
-      case "session.updated": {
-        const status = props.session?.status || props.status;
-        if (status && status !== "running" && status !== "pending") {
+      // ── Session status (busy → idle/completed) ──
+      case "session.status": {
+        const status = props.status?.type || props.status;
+        if (status && status !== "busy" && status !== "pending") {
           if (turnResolve) {
             turnResolve(status);
             turnResolve = null;
           }
+        }
+        break;
+      }
+
+      // ── Session updated (metadata; also check for status) ──
+      case "session.updated": {
+        const info = props.info || props.session || {};
+        const status = info.status?.type || info.status;
+        if (status && status !== "busy" && status !== "running" && status !== "pending") {
+          if (turnResolve) {
+            turnResolve(status);
+            turnResolve = null;
+          }
+        }
+        break;
+      }
+
+      // ── Message-level finish detection ──
+      case "message.updated": {
+        const info = props.info || {};
+        if (info.finish && info.finish !== "pending") {
+          // Model finished generating — mark as turn end candidate
+          // (session.status should follow, but use this as backup)
+          lastOutputTime = Date.now();
         }
         break;
       }
@@ -533,6 +574,7 @@ function createEventDisplay(client) {
     currentRole = role;
     printedTextLengths.clear();
     displayedToolStates.clear();
+    deltaParts.clear();
   }
 
   function stop() {

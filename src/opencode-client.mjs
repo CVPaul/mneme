@@ -65,7 +65,17 @@ export function createClient(baseUrl) {
         } else if (line.startsWith("data:")) {
           const data = line.slice(5).trim();
           try {
-            currentEvent.properties = JSON.parse(data);
+            const parsed = JSON.parse(data);
+            // opencode sends all fields in data JSON: {type, properties, ...}
+            // Merge into currentEvent, but prefer explicit event: line if present
+            if (parsed && typeof parsed === "object") {
+              if (!currentEvent.type && parsed.type) {
+                currentEvent.type = parsed.type;
+              }
+              currentEvent.properties = parsed.properties || parsed;
+            } else {
+              currentEvent.properties = parsed;
+            }
           } catch {
             currentEvent.properties = data;
           }
