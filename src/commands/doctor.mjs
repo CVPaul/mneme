@@ -71,6 +71,7 @@ export async function doctor() {
 
   console.log(color.bold("Dependencies:"));
   const gitOk = checkCmd("git", "git --version");
+  const opencodeOk = checkCmd("opencode", "opencode --version 2>/dev/null | head -1");
   const doltOk = checkCmd("dolt", "dolt version");
   const bdOk = checkCmd("bd", "bd version 2>/dev/null | head -1");
   const serverOk = checkDoltServer();
@@ -79,7 +80,7 @@ export async function doctor() {
   const structOk = checkStructure();
 
   console.log();
-  if (gitOk && doltOk && bdOk && serverOk && structOk) {
+  if (gitOk && opencodeOk && doltOk && bdOk && serverOk && structOk) {
     log.ok(color.bold("All checks passed"));
   } else {
     log.warn(

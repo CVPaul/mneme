@@ -17,7 +17,7 @@ mkdir my-project && cd my-project
 mneme init
 
 # 开始使用
-opencode
+mneme
 ```
 
 `mneme init` 会自动完成：
@@ -29,9 +29,15 @@ opencode
 ### CLI 命令
 
 ```bash
-mneme init       # 初始化当前目录
-mneme doctor     # 检查依赖和项目健康状态
-mneme version    # 打印版本号
+mneme              # 启动 opencode TUI（等同于 mneme start）
+mneme init         # 初始化当前目录
+mneme doctor       # 检查依赖和项目健康状态
+mneme version      # 打印版本号
+
+# opencode 命令透传
+mneme run "fix the bug"   # 非交互模式运行
+mneme web                 # 启动 Web 界面
+mneme serve               # 启动 headless server
 ```
 
 ---

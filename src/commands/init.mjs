@@ -321,7 +321,7 @@ ${color.bold("===============================")}
 ${color.bold("===============================")}
 
 ${color.bold("Next steps:")}
-  opencode                   # Start coding with AI agent
+  mneme                      # Start coding with AI agent
   bd ready                   # Check available tasks
   mneme doctor               # Verify everything is healthy
 `);
