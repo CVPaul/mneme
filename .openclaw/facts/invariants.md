@@ -31,7 +31,7 @@
 ## Session 行为规则
 
 6. **每个 session 必须从三层读取开始**
-   - 先读 OpenClaw facts → 再通过 `bd ready` / `bd list` 读 Beads → 再开始执行
+   - 先读 OpenClaw facts → 再通过 `mneme ready` / `mneme list` 读 Beads → 再开始执行
    - 禁止跳过读取步骤直接开始工作
 
 7. **单一焦点原则**
@@ -39,17 +39,17 @@
    - 禁止在一个 session 中同时推进多个不相关的 bead
 
 8. **Compaction 前必须持久化**
-   - 在 context compaction 发生前，必须将已确认的结论写入 Beads（`bd update --notes`）
+   - 在 context compaction 发生前，必须将已确认的结论写入 Beads（`mneme update --notes`）
    - 若发现新的长期事实，必须提议写入 OpenClaw
    - 原则：**可以丢失推理过程，但不能丢失状态与事实**
 
 ## Beads 使用规则
 
-9. **通过 bd CLI 管理任务**
-   - 使用 `bd create` 创建任务（必须指定 `--title`, `--description`, `--type`, `-p`）
-   - 使用 `bd update` 更新任务（禁止使用 `bd edit`，它会打开交互式编辑器）
-   - 使用 `bd close` 关闭完成的任务
-   - 使用 `bd dep add` 管理依赖关系
+9. **通过 mneme CLI 管理任务**
+   - 使用 `mneme create` 创建任务（必须指定 `--title`, `--description`, `--type`, `-p`）
+   - 使用 `mneme update` 更新任务（禁止使用 `bd edit`，它会打开交互式编辑器）
+   - 使用 `mneme close` 关闭完成的任务
+   - 使用 `mneme dep add` 管理依赖关系
 
 10. **优先级使用数字 0-4**
     - 0 = Critical, 1 = High, 2 = Medium (默认), 3 = Low, 4 = Backlog
@@ -61,6 +61,6 @@
     - 每个文件有明确的主题范围
     - 使用编号便于引用
 
-12. **Beads 使用 bd CLI 管理**
+12. **Beads 使用 mneme CLI 管理**
     - 数据存储在 Dolt 数据库中（`.beads/` 目录）
     - ID 为 hash-based 格式（如 `bd-a1b2`），不可手动编辑

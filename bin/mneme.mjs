@@ -23,10 +23,11 @@
  *   mneme <opencode-subcommand> [args..]   Pass through to opencode
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { createInterface } from "node:readline";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -166,7 +167,8 @@ Quickstart:
   default:
     // Route: bd commands → bd, everything else → opencode (default)
     if (!command) {
-      // bare `mneme` → launch opencode TUI
+      // bare `mneme` → check init, then launch opencode TUI
+      await ensureInitialized();
       launchOpencode([]);
     } else if (BD_COMMANDS.has(command)) {
       launchBd(args);
@@ -174,6 +176,41 @@ Quickstart:
       launchOpencode(args);
     }
     break;
+}
+
+/**
+ * Check if mneme is initialized in the current directory.
+ * If not, prompt user to run init.
+ */
+async function ensureInitialized() {
+  if (existsSync(".openclaw/facts") && existsSync("AGENTS.md")) {
+    return; // already initialized
+  }
+
+  const answer = await ask(
+    "mneme is not initialized in this directory. Run mneme init? [Y/n] ",
+  );
+
+  if (answer === "" || answer.toLowerCase().startsWith("y")) {
+    const { init } = await import("../src/commands/init.mjs");
+    await init();
+  }
+}
+
+/**
+ * Prompt user for a single line of input.
+ */
+function ask(question) {
+  return new Promise((resolve) => {
+    const rl = createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
 }
 
 /**

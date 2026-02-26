@@ -33,7 +33,7 @@ mneme 采用三层记忆平面（Memory Plane）架构，将不同稳定度和�
 - **状态流转**: open → in_progress → closed（也可 blocked、deferred）
 - **ID 格式**: Hash-based（如 `bd-a1b2`），防止合并冲突
 - **写入频率**: 中等，每完成一个阶段性目标时更新
-- **读取频率**: 每个 session 启动时通过 `bd ready` / `bd list` 读取
+- **读取频率**: 每个 session 启动时通过 `mneme ready` / `mneme list` 读取
 
 ### OpenCode（短期执行层）
 
@@ -47,16 +47,16 @@ mneme 采用三层记忆平面（Memory Plane）架构，将不同稳定度和�
 ```
 Session 启动:
   OpenCode ──读取──→ OpenClaw facts (建立长期上下文)
-  OpenCode ── bd ready / bd list ──→ Beads (恢复任务进度)
-  OpenCode ── bd update --status=in_progress ──→ claim 一个 bead 作为当前 focus
+  OpenCode ── mneme ready / mneme list ──→ Beads (恢复任务进度)
+  OpenCode ── mneme update --status=in_progress ──→ claim 一个 bead 作为当前 focus
 
 执行过程:
   OpenCode ──执行──→ 代码操作
-  OpenCode ── bd update --notes ──→ Beads (记录进度)
-  OpenCode ── bd create ──→ Beads (创建新发现的子任务)
+  OpenCode ── mneme update --notes ──→ Beads (记录进度)
+  OpenCode ── mneme create ──→ Beads (创建新发现的子任务)
 
 Compaction 前:
-  OpenCode ── bd update --notes ──→ Beads (持久化已确认结论)
+  OpenCode ── mneme update --notes ──→ Beads (持久化已确认结论)
   OpenCode ──提议──→ 新的长期事实 → OpenClaw (需人工确认)
 ```
 
@@ -82,6 +82,7 @@ mneme/
 
 ## 技术依赖
 
-- **bd** (beads CLI): `npm install -g @beads/bd` 或 `brew install beads`
+- **mneme**: `npm install -g @xqli/mneme` — 统一 CLI 入口
+- **bd** (beads CLI): 任务管理后端，由 mneme 内部调用
 - **Dolt**: bd 的后端数据库，由 bd 自动管理
 - **Git**: 版本控制与协作基础
