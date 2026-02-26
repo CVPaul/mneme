@@ -1,48 +1,48 @@
-这是一个长期工程项目，请严格按以下顺序建立上下文：
+This is a long-running engineering project. Follow this sequence strictly at session start:
 
-## 第一步：读取 OpenClaw facts（长期事实）
+## Step 1: Read OpenClaw facts (long-term knowledge)
 
-请完整阅读以下文件：
+Read all of these files completely:
 - .openclaw/facts/architecture.md
 - .openclaw/facts/invariants.md
 - .openclaw/facts/performance_rules.md
 - .openclaw/facts/pitfalls.md
 
-这些内容是长期事实：
-- 优先级高于对话历史和你的推理
-- 不要随意推翻
-- 若发现矛盾，请提出而不是修改
+These are verified long-term facts:
+- They take priority over conversation history and your own reasoning
+- Do not override or dismiss them
+- If you find a contradiction, raise it instead of silently changing facts
 
-## 第二步：读取 Beads 当前任务列表
+## Step 2: Read current task state from Beads
 
-使用 `mneme` 命令查看当前任务状态：
-- `mneme ready` — 查看可执行任务（无阻塞依赖）
-- `mneme list --status=open` — 查看所有未完成任务
-- `mneme show <id>` — 查看具体任务详情
+Use `mneme` commands to check what work is available:
+- `mneme ready` — tasks with no blocking dependencies
+- `mneme list --status=open` — all incomplete tasks
+- `mneme show <id>` — details for a specific task
 
-## 第三步：选择 focus
+## Step 3: Pick a focus
 
-- 只选择一个 bead 作为本 session 的目标
-- 优先从 `mneme ready` 结果中选择
-- 选定后 claim 它：`mneme update <id> --status=in_progress`
-- 不要试图从对话历史中恢复状态
+- Choose exactly one task (bead) as this session's goal
+- Prefer tasks from `mneme ready` (no blockers)
+- Claim it: `mneme update <id> --status=in_progress`
+- Do not reconstruct progress from conversation history
 
-## 信息路由（自动执行，不需要用户指示）
+## Information routing (automatic — no user prompting needed)
 
-在工作过程中你会产生新信息。**你必须自动判断它属于哪一层**：
+As you work, you will discover new information. **You must classify it automatically**:
 
-- **6 个月后还有用？** + 是事实/约束/教训 → **提议写入 OpenClaw**（需人工确认）
-- **6 个月后还有用？** + 是待办/进度 → **写入 Beads**（`mneme create` 或 `mneme update --notes`）
-- **下个 session 需要？** → **写入 Beads**
-- **仅当前操作需要？** → 留在 OpenCode，不持久化
+- **Will it matter in 6 months?** + it's a fact/constraint/lesson → **Propose to OpenClaw** (requires human approval)
+- **Will it matter in 6 months?** + it's a task/progress update → **Write to Beads** (`mneme create` or `mneme update --notes`)
+- **Will the next session need it?** → **Write to Beads**
+- **Only needed for the current operation?** → Keep in context, do not persist
 
-写入 OpenClaw 前的检查：已验证 + 反复需要 + 不会快速过时 + 无重复。详见 AGENTS.md "三层路由决策" 一节。
+Before writing to OpenClaw: verified + repeatedly needed + won't become stale quickly + no duplicate. See AGENTS.md "Information routing" section.
 
-## 重要原则
+## Key rules
 
-- 不要跳过上述步骤直接开始工作
-- 完成阶段性目标后更新 Beads：`mneme update <id> --notes="进度"`
-- 完成任务后关闭：`mneme close <id> --reason="完成说明"`
-- 发现新的长期事实时提议写入 OpenClaw（需人工确认）
-- Compaction 前必须持久化状态与结论
-- 禁止使用 `bd edit`（会打开交互式编辑器），使用 `mneme update` 代替
+- Do not skip these steps and jump straight to coding
+- After completing a milestone: `mneme update <id> --notes="progress"`
+- After finishing a task: `mneme close <id> --reason="summary"`
+- When discovering a new long-term fact: propose to OpenClaw (requires human approval)
+- Before compaction: persist all state and conclusions
+- Never use `bd edit` (opens interactive editor) — use `mneme update` instead

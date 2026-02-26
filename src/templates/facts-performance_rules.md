@@ -1,5 +1,5 @@
 # Performance Rules
 
-<!-- 在此记录性能相关的规则和约束。示例：-->
-<!-- - 批量操作优于逐条操作 -->
-<!-- - 缓存 TTL 不超过 5 分钟 -->
+<!-- Record performance-related rules and constraints. Examples: -->
+<!-- - Batch operations over bulk row-by-row inserts -->
+<!-- - Cache TTL must not exceed 5 minutes -->

@@ -1,6 +1,6 @@
-# Invariants — 不可违反的约束
+# Invariants
 
-<!-- 在此记录项目的硬性约束和红线。示例：-->
-<!-- - 所有 API 必须经过认证，禁止匿名访问 -->
-<!-- - 数据库 migration 必须向后兼容 -->
-<!-- - 响应时间不得超过 200ms (P99) -->
+<!-- Record hard constraints and rules that must never be violated. Examples: -->
+<!-- - All API endpoints require authentication (no anonymous access) -->
+<!-- - Database migrations must be backward-compatible -->
+<!-- - P99 response time must stay below 200ms -->

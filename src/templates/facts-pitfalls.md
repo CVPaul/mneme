@@ -1,5 +1,5 @@
-# Pitfalls — 已知陷阱
+# Pitfalls
 
-<!-- 在此记录踩过的坑和非显而易见的陷阱。示例：-->
-<!-- - MySQL 的 utf8 实际是 3 字节，需要用 utf8mb4 -->
-<!-- - Docker build 中 COPY 会导致缓存失效，注意顺序 -->
+<!-- Record non-obvious traps and lessons learned. Examples: -->
+<!-- - MySQL's utf8 is only 3 bytes; use utf8mb4 for full Unicode support -->
+<!-- - COPY in Dockerfile invalidates the build cache; order layers carefully -->

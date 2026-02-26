@@ -1,88 +1,88 @@
-# Architecture — 三层记忆架构
+# Architecture — Three-Layer Memory Architecture
 
-## 总体架构
+## Overall Architecture
 
-mneme 采用三层记忆平面（Memory Plane）架构，将不同稳定度和生命周期的信息彻底解耦：
+mneme uses a three-layer memory plane architecture that fully decouples information of different stability levels and lifetimes:
 
 ```
 ┌─────────────────────────────────────────┐
-│  Layer 1: OpenClaw  — 长期事实 (Facts)   │  ← 极稳定，跨项目生命周期
+│  Layer 1: OpenClaw  — Long-term Facts    │  ← Extremely stable, project lifetime
 ├─────────────────────────────────────────┤
-│  Layer 2: Beads     — 任务状态 (State)   │  ← 中期变化，跨 session
+│  Layer 2: Beads     — Task State         │  ← Mid-term changes, cross-session
 ├─────────────────────────────────────────┤
-│  Layer 3: OpenCode  — 当前上下文 (Exec)  │  ← 高频变化，单 session 内
+│  Layer 3: OpenCode  — Current Context    │  ← High-frequency changes, single session
 └─────────────────────────────────────────┘
 ```
 
-## 各层职责边界
+## Layer Responsibilities
 
-### OpenClaw（长期事实层）
+### OpenClaw (Long-term Facts Layer)
 
-- **存储位置**: `.openclaw/facts/` 目录
-- **内容类型**: 架构决策、不可变约束、性能红线、已知陷阱
-- **写入频率**: 极低，仅在确认新的长期事实时写入
-- **读取频率**: 每个 session 启动时必读
-- **稳定性要求**: 内容一旦写入，不可轻易修改或删除；若需修改，必须显式提出并说明原因
+- **Storage**: `.openclaw/facts/` directory
+- **Content**: Architecture decisions, immutable constraints, performance red lines, known pitfalls
+- **Write frequency**: Extremely low — only when a new long-term fact is confirmed
+- **Read frequency**: Must be read at the start of every session
+- **Stability requirement**: Once written, content must not be easily modified or deleted; changes require explicit justification
 
-### Beads（任务状态层）
+### Beads (Task State Layer)
 
-- **工具**: [bd (beads)](https://github.com/steveyegge/beads) — 分布式 Git-backed 图形 issue tracker
-- **后端**: Dolt（版本化 SQL 数据库），支持 cell-level merge、原生分支
-- **存储位置**: `.beads/` 目录（由 `bd init` 自动创建和管理）
-- **内容类型**: 任务定义、状态、优先级（P0-P4）、依赖关系、备注
-- **状态流转**: open → in_progress → closed（也可 blocked、deferred）
-- **ID 格式**: Hash-based（如 `bd-a1b2`），防止合并冲突
-- **写入频率**: 中等，每完成一个阶段性目标时更新
-- **读取频率**: 每个 session 启动时通过 `mneme ready` / `mneme list` 读取
+- **Tool**: [bd (beads)](https://github.com/steveyegge/beads) — distributed Git-backed graph issue tracker
+- **Backend**: Dolt (versioned SQL database) with cell-level merge and native branching
+- **Storage**: `.beads/` directory (created and managed by `bd init`)
+- **Content**: Task definitions, status, priority (P0–P4), dependencies, notes
+- **State flow**: open → in_progress → closed (also blocked, deferred)
+- **ID format**: Hash-based (e.g. `bd-a1b2`) to prevent merge conflicts
+- **Write frequency**: Moderate — updated after each milestone
+- **Read frequency**: Checked via `mneme ready` / `mneme list` at session start
 
-### OpenCode（短期执行层）
+### OpenCode (Short-term Execution Layer)
 
-- **无持久化存储**: 仅存在于当前 session 的对话上下文中
-- **内容类型**: 代码分析、文件修改、命令执行等即时操作
-- **生命周期**: 随 session 结束或 context compaction 而消失
-- **核心原则**: 不承担记忆，不承担任务管理
+- **No persistent storage**: Exists only in the current session's conversation context
+- **Content**: Code analysis, file modifications, command execution, and other immediate operations
+- **Lifetime**: Disappears on session end or context compaction
+- **Core principle**: Does not carry memory, does not manage tasks
 
-## 数据流
-
-```
-Session 启动:
-  OpenCode ──读取──→ OpenClaw facts (建立长期上下文)
-  OpenCode ── mneme ready / mneme list ──→ Beads (恢复任务进度)
-  OpenCode ── mneme update --status=in_progress ──→ claim 一个 bead 作为当前 focus
-
-执行过程:
-  OpenCode ──执行──→ 代码操作
-  OpenCode ── mneme update --notes ──→ Beads (记录进度)
-  OpenCode ── mneme create ──→ Beads (创建新发现的子任务)
-
-Compaction 前:
-  OpenCode ── mneme update --notes ──→ Beads (持久化已确认结论)
-  OpenCode ──提议──→ 新的长期事实 → OpenClaw (需人工确认)
-```
-
-## 目录结构
+## Data Flow
 
 ```
-mneme/
-├── README.md                    # 项目概览与快速开始
-├── ARCHITECTURE.md              # 三层记忆架构设计文档
-├── AGENTS.md                    # OpenCode agent 行为规则
+Session start:
+  OpenCode ── reads ──→ OpenClaw facts (establish long-term context)
+  OpenCode ── mneme ready / mneme list ──→ Beads (restore task progress)
+  OpenCode ── mneme update --status=in_progress ──→ claim one bead as focus
+
+During execution:
+  OpenCode ── executes ──→ code operations
+  OpenCode ── mneme update --notes ──→ Beads (record progress)
+  OpenCode ── mneme create ──→ Beads (create newly discovered sub-tasks)
+
+Before compaction:
+  OpenCode ── mneme update --notes ──→ Beads (persist confirmed conclusions)
+  OpenCode ── proposes ──→ new long-term facts → OpenClaw (requires human approval)
+```
+
+## Directory Structure
+
+```
+project/
+├── README.md                    # Project overview and quick start
+├── ARCHITECTURE.md              # Three-layer memory architecture design doc
+├── AGENTS.md                    # Agent behavior rules
 ├── .openclaw/
 │   └── facts/
-│       ├── architecture.md      # 本文件 - 项目架构
-│       ├── invariants.md        # 不可违反的约束与红线
-│       ├── performance_rules.md # 性能相关规则
-│       └── pitfalls.md          # 已知陷阱与教训
-├── .beads/                      # Beads 数据（由 bd init 管理）
-│   ├── config.yaml              # Beads 配置
-│   └── dolt/                    # Dolt 数据库目录
+│       ├── architecture.md      # Project architecture
+│       ├── invariants.md        # Hard constraints and red lines
+│       ├── performance_rules.md # Performance rules
+│       └── pitfalls.md          # Known pitfalls and lessons
+├── .beads/                      # Beads data (managed by bd init)
+│   ├── config.yaml              # Beads config
+│   └── dolt/                    # Dolt database directory
 └── .opencode/
-    └── prompt.md                # OpenCode session 启动 prompt
+    └── prompt.md                # Session startup prompt
 ```
 
-## 技术依赖
+## Technical Dependencies
 
-- **mneme**: `npm install -g @xqli02/mneme` — 统一 CLI 入口
-- **bd** (beads CLI): 任务管理后端，由 mneme 内部调用
-- **Dolt**: bd 的后端数据库，由 bd 自动管理
-- **Git**: 版本控制与协作基础
+- **mneme**: `npm install -g @xqli02/mneme` — unified CLI entry point
+- **bd** (beads CLI): Task management backend, called internally by mneme
+- **Dolt**: Backend database for bd, managed automatically by bd
+- **Git**: Version control and collaboration foundation

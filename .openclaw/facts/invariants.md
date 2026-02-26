@@ -1,66 +1,66 @@
-# Invariants — 不可违反的约束与红线
+# Invariants — Hard Constraints
 
-## 三层分离原则
+## Three-Layer Separation Principle
 
-1. **事实与状态不可混放**
-   - OpenClaw 只存放已确认的长期事实，禁止存放任务进度或临时结论
-   - Beads 只存放任务状态与进度，禁止存放架构决策或长期事实
-   - 两者之间的信息流转必须显式操作，不可隐式合并
+1. **Facts and state must not be mixed**
+   - OpenClaw stores only confirmed long-term facts — no task progress or temporary conclusions
+   - Beads stores only task state and progress — no architecture decisions or long-term facts
+   - Information transfer between layers must be explicit, never implicit
 
-2. **OpenClaw 的不可变性**
-   - OpenClaw facts 一旦写入，不可被 agent 单方面修改或删除
-   - 若 agent 发现 facts 与当前情况矛盾，必须**提出质疑**而非直接修改
-   - 修改 OpenClaw 内容需要人工确认
+2. **OpenClaw immutability**
+   - Once written, OpenClaw facts must not be unilaterally modified or deleted by agents
+   - If an agent finds facts contradicting current reality, it must **raise the contradiction** rather than edit directly
+   - Modifying OpenClaw content requires human approval
 
-3. **Beads 的原子性**
-   - 每个 bead 必须是一个明确、可验证的任务
-   - 禁止创建模糊的、无法判断完成与否的 bead
-   - 禁止创建过大的 bead（应拆分为子任务或使用 epic）
+3. **Beads atomicity**
+   - Every bead must be a clear, verifiable task
+   - No vague beads that cannot be objectively judged as complete or incomplete
+   - No oversized beads — break them into sub-tasks or use an epic
 
-## 信息写入规则
+## Information Writing Rules
 
-4. **只记录已确认的信息**
-   - OpenClaw 禁止记录：临时想法、未验证假设、推测性结论
-   - 信息必须经过验证或由人工确认后才能写入 facts
+4. **Only record confirmed information**
+   - OpenClaw must not contain: temporary ideas, unverified hypotheses, speculative conclusions
+   - Information must be verified or human-approved before being written to facts
 
-5. **优先级链**
-   - OpenClaw facts 的优先级 **高于** 对话历史
-   - OpenClaw facts 的优先级 **高于** agent 的推理结论
-   - 当两者矛盾时，以 OpenClaw 为准，除非有明确证据推翻
+5. **Priority chain**
+   - OpenClaw facts take priority **over** conversation history
+   - OpenClaw facts take priority **over** agent reasoning
+   - When they conflict, OpenClaw wins unless there is clear evidence to overturn it
 
-## Session 行为规则
+## Session Behavior Rules
 
-6. **每个 session 必须从三层读取开始**
-   - 先读 OpenClaw facts → 再通过 `mneme ready` / `mneme list` 读 Beads → 再开始执行
-   - 禁止跳过读取步骤直接开始工作
+6. **Every session must begin by reading all three layers**
+   - Read OpenClaw facts → check Beads via `mneme ready` / `mneme list` → then start executing
+   - Skipping any step is prohibited
 
-7. **单一焦点原则**
-   - 每个 session 只选择一个 bead 作为 focus
-   - 禁止在一个 session 中同时推进多个不相关的 bead
+7. **Single focus principle**
+   - Each session selects exactly one bead as its focus
+   - No working on multiple unrelated beads in a single session
 
-8. **Compaction 前必须持久化**
-   - 在 context compaction 发生前，必须将已确认的结论写入 Beads（`mneme update --notes`）
-   - 若发现新的长期事实，必须提议写入 OpenClaw
-   - 原则：**可以丢失推理过程，但不能丢失状态与事实**
+8. **Must persist before compaction**
+   - Before context compaction, confirmed conclusions must be written to Beads (`mneme update --notes`)
+   - If a new long-term fact is discovered, it must be proposed to OpenClaw
+   - Principle: **you can lose the reasoning process, but you must not lose state or facts**
 
-## Beads 使用规则
+## Beads Usage Rules
 
-9. **通过 mneme CLI 管理任务**
-   - 使用 `mneme create` 创建任务（必须指定 `--title`, `--description`, `--type`, `-p`）
-   - 使用 `mneme update` 更新任务（禁止使用 `bd edit`，它会打开交互式编辑器）
-   - 使用 `mneme close` 关闭完成的任务
-   - 使用 `mneme dep add` 管理依赖关系
+9. **Manage tasks through mneme CLI**
+   - Use `mneme create` to create tasks (must specify `--title`, `--description`, `--type`, `-p`)
+   - Use `mneme update` to update tasks (never use `bd edit` — it opens an interactive editor)
+   - Use `mneme close` to close completed tasks
+   - Use `mneme dep add` to manage dependencies
 
-10. **优先级使用数字 0-4**
-    - 0 = Critical, 1 = High, 2 = Medium (默认), 3 = Low, 4 = Backlog
-    - 不要使用 "high" / "medium" / "low" 等文字描述
+10. **Priorities use numbers 0–4**
+    - 0 = Critical, 1 = High, 2 = Medium (default), 3 = Low, 4 = Backlog
+    - Do not use text descriptions like "high" / "medium" / "low"
 
-## 格式与命名规则
+## Format and Naming Rules
 
-11. **OpenClaw facts 使用 Markdown 格式**
-    - 每个文件有明确的主题范围
-    - 使用编号便于引用
+11. **OpenClaw facts use Markdown format**
+    - Each file has a clear topical scope
+    - Use numbering for easy reference
 
-12. **Beads 使用 mneme CLI 管理**
-    - 数据存储在 Dolt 数据库中（`.beads/` 目录）
-    - ID 为 hash-based 格式（如 `bd-a1b2`），不可手动编辑
+12. **Beads are managed through mneme CLI**
+    - Data is stored in a Dolt database (`.beads/` directory)
+    - IDs are hash-based (e.g. `bd-a1b2`) and must not be manually edited

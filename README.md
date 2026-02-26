@@ -157,6 +157,10 @@ AGENTS.md                Agent behavior rules and routing logic
 - Not a framework — it's a single CLI with zero npm dependencies
 - Not opinionated about your code — it only manages agent memory
 
+## Example
+
+See [examples/basic/](examples/basic/) for a complete example of what a mneme-managed project looks like after initialization, with realistic facts filled in for a hypothetical todo-api project.
+
 ## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design document.
