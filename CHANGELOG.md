@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.1.14
+
+- **Architecture: oh-my-opencode + mneme plugin** — replaced the custom daemon+TUI agent orchestration with oh-my-opencode's built-in multi-agent system
+  - Installed `oh-my-opencode` (v3.9.0) as opencode plugin for agent orchestration (Sisyphus, Hephaestus, Prometheus, Atlas, etc.)
+  - Created **mneme plugin** (`.opencode/plugins/mneme.ts`) exposing 11 custom tools:
+    - Beads: `mneme_ready`, `mneme_list`, `mneme_show`, `mneme_create`, `mneme_update`, `mneme_close`, `mneme_blocked`, `mneme_dep`
+    - Ledger: `mneme_facts`, `mneme_propose_fact`
+    - Status: `mneme_status`, `mneme_doctor`
+  - Added **compaction hook** — injects mneme task state and facts overview into session compaction context
+  - Created `opencode.json` with oh-my-opencode plugin reference
+  - Created `.opencode/oh-my-opencode.jsonc` with model routing for GitHub Copilot plan (claude-opus-4.6, gpt-4.1, claude-sonnet-4.6, gemini-2.5-pro)
+- **Simplified `mneme auto`** — reduced from ~2050 lines to ~155 lines
+  - TUI mode: launches `opencode` directly (oh-my-opencode handles agent orchestration)
+  - Headless mode (`--headless`): runs `opencode run <goal>`
+  - Ensures Dolt is running before launch
+  - Removed daemon process, SSE monitoring, planner/executor dual-agent loop, goal discussion flows (all replaced by oh-my-opencode's Ralph Loop, todo enforcer, etc.)
+- **Updated `.opencode/prompt.md`** — rewrote to reference mneme tools instead of CLI commands, streamlined session startup instructions
+
 ## v0.1.13
 
 - **Fix: process hangs after completion** — SSE event streams were not properly closed when the supervisor loop finished, preventing Node.js from exiting

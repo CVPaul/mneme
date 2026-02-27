@@ -192,12 +192,10 @@ Usage:
   mneme blocked                 Show blocked tasks
   mneme dep add <child> <parent>  Add dependency
 
-  ${bold("AI agent (opencode):")}
-  mneme auto                    Dual-agent autonomous supervisor loop
-  mneme auto "Build auth"       Start with a specific goal
-  mneme auto --attach URL       Attach to existing server
-  mneme auto --planner MODEL    Override planner model (default: gpt-5.2)
-  mneme auto --executor MODEL   Override executor model (default: claude-opus-4.6)
+  ${bold("AI agent (opencode + oh-my-opencode):")}
+  mneme auto                    Launch opencode TUI with mneme tools
+  mneme auto "Build auth"       Launch with a specific goal (headless)
+  mneme auto --headless "msg"   Headless mode (opencode run)
   mneme start                   Start opencode TUI (same as bare mneme)
   mneme run [message..]         Run opencode non-interactively
   mneme web                     Start web interface
