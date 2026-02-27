@@ -24,6 +24,7 @@ const SUPPORTED_LOCALES = new Set(["en", "cn"]);
 
 /**
  * Map of destination path (relative to project root) -> template filename.
+ * Templates prefixed with "opencode-" are for the opencode integration layer.
  */
 const SCAFFOLD = {
   "AGENTS.md": "AGENTS.md",
@@ -33,6 +34,12 @@ const SCAFFOLD = {
   ".ledger/facts/performance_rules.md": "facts-performance_rules.md",
   ".ledger/facts/pitfalls.md": "facts-pitfalls.md",
   ".gitignore": "gitignore",
+  // opencode integration files
+  "opencode.json": "opencode-json",
+  ".opencode/plugins/mneme.ts": "opencode-plugin-mneme-ts",
+  ".opencode/oh-my-opencode.jsonc": "opencode-oh-my-opencode-jsonc",
+  ".opencode/package.json": "opencode-package-json",
+  ".opencode/.gitignore": "opencode-dotgitignore",
 };
 
 // Templates that have locale-specific versions (everything except .gitignore)
@@ -303,6 +310,44 @@ function initGit() {
   return false;
 }
 
+// ── Opencode plugin dependencies ────────────────────────────────────────────
+
+function installOpencodePlugins() {
+  if (!existsSync(".opencode/package.json")) {
+    log.warn(".opencode/package.json not found, skipping plugin install");
+    return false;
+  }
+
+  if (existsSync(".opencode/node_modules")) {
+    log.ok(`.opencode/node_modules/ ${color.dim("(already installed)")}`);
+    return true;
+  }
+
+  log.info("Installing opencode plugin dependencies...");
+
+  // Prefer bun (faster), fall back to npm
+  const pkgMgr = has("bun") ? "bun" : has("npm") ? "npm" : null;
+  if (!pkgMgr) {
+    log.warn("Neither bun nor npm found — cannot install plugin dependencies");
+    log.info("  Run 'npm install' or 'bun install' in .opencode/ manually");
+    return false;
+  }
+
+  // Use official registry to avoid issues with local mirror not having these packages
+  const installCmd = pkgMgr === "npm"
+    ? "npm install --registry=https://registry.npmjs.org"
+    : "bun install";
+  const code = runLive(installCmd, { cwd: join(process.cwd(), ".opencode"), timeout: 60_000 });
+  if (code === 0) {
+    log.ok(`opencode plugins installed via ${pkgMgr}`);
+    return true;
+  }
+
+  log.warn(`Failed to install opencode plugins (${pkgMgr} install exited ${code})`);
+  log.info("  Run 'npm install' or 'bun install' in .opencode/ manually");
+  return false;
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 export async function init(args = []) {
@@ -317,7 +362,7 @@ ${color.bold("mneme init")} — Three-layer memory architecture for AI agents${l
   log.info(`Platform: ${os} ${arch}`);
 
   // Step 1: Dependencies
-  log.step(1, 4, "Install dependencies");
+  log.step(1, 5, "Install dependencies");
   const gitOk = installGit();
   if (!gitOk) {
     log.fail("git is required. Aborting.");
@@ -328,16 +373,20 @@ ${color.bold("mneme init")} — Three-layer memory architecture for AI agents${l
   const bdOk = installBd();
 
   // Step 2: Git init
-  log.step(2, 4, "Initialize git");
+  log.step(2, 5, "Initialize git");
   initGit();
 
   // Step 3: Scaffold files
-  log.step(3, 4, "Scaffold project structure");
+  log.step(3, 5, "Scaffold project structure");
   const { created, skipped } = scaffoldFiles(locale);
   log.info(`  ${created} file(s) created, ${skipped} already existed`);
 
-  // Step 4: Dolt + Beads
-  log.step(4, 4, "Initialize beads");
+  // Step 4: Install opencode plugin dependencies
+  log.step(4, 5, "Install opencode plugins");
+  installOpencodePlugins();
+
+  // Step 5: Dolt + Beads
+  log.step(5, 5, "Initialize beads");
   if (doltOk && bdOk) {
     const serverOk = ensureDoltServer();
     if (serverOk) {

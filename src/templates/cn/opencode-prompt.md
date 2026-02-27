@@ -1,46 +1,59 @@
-这是一个长期工程项目。每次会话开始时，请严格按以下流程执行：
+这是一个由 **mneme** 管理的长期工程项目 —— 三层记忆架构。
 
-## 第一步：读取 Ledger 事实（长期知识）
+## 第一层：Ledger（长期事实）
 
-完整读取以下所有文件：
-- .ledger/facts/architecture.md
-- .ledger/facts/invariants.md
-- .ledger/facts/performance_rules.md
-- .ledger/facts/pitfalls.md
+在会话开始时使用 `mneme_facts` 工具读取所有事实：
+- 调用 `mneme_facts`（不带参数）列出所有事实文件
+- 对每个文件名调用 `mneme_facts` 读取其内容
 
-这些是经过验证的长期事实：
-- 它们的优先级高于对话历史和你自己的推理
-- 不要覆盖或忽视它们
-- 如果发现矛盾，提出矛盾而不是默默修改事实
+事实是经过验证的长期知识，优先级高于对话历史和你自己的推理。如果发现矛盾，向用户提出 —— 不要默默覆盖事实。
 
-## 第二步：从 Beads 读取当前任务状态
+## 第二层：Beads（任务状态）
 
-使用 `mneme` 命令检查可用工作：
-- `mneme ready` —— 无阻塞依赖的任务
-- `mneme list --status=open` —— 所有未完成的任务
-- `mneme show <id>` —— 具体任务的详细信息
+使用以下工具检查可用工作：
+- `mneme_ready` —— 无阻塞依赖的任务（从这里开始）
+- `mneme_list` —— 所有任务，可按状态过滤
+- `mneme_show` —— 具体任务的详细信息
 
-## 第三步：选择一个焦点
+## 第三层：Context（本次会话）
 
-- 选择恰好一个任务（bead）作为本次会话的目标
-- 优先选择 `mneme ready` 中的任务（无阻塞项）
-- 认领它：`mneme update <id> --status=in_progress`
-- 不要从对话历史重建进度
+选择恰好一个任务作为本次会话的焦点。使用 `mneme_update` 认领（设置状态为 in_progress）。
 
-## 信息路由（自动执行 —— 无需询问用户）
+## 会话启动流程（必须执行）
 
-工作过程中你会发现新信息，请立即分类：
+1. 调用 `mneme_facts` 列出所有事实文件，然后逐个读取
+2. 调用 `mneme_ready` 和 `mneme_list`（状态为 "open"）
+3. 选择一个任务，使用 `mneme_update` 认领
+4. 开始工作
 
-- **长期事实或约束？** 提议给 Ledger：`mneme propose --file=<name> --content="..." --reason="..."`
-- **任务或进度更新？** 写入 Beads：`mneme create` 或 `mneme update <id> --notes="..."`
-- **只跟当前相关？** 保留在上下文中，不持久化
+不要跳过这些步骤直接开始写代码。
 
-提议事实前，请验证：它已被确认（不是猜测）、未来会话会需要它、不会很快过时、且不存在重复。
+## 工作过程中
+
+- 每完成一个里程碑：使用 `mneme_update` 记录进度
+- 发现新的长期事实时：`mneme_propose_fact`（需要人工审批）
+- 子任务：`mneme_create`，然后用 `mneme_dep` 关联
+- 完成时：`mneme_close` 附上摘要
+
+## 提议事实 —— 阈值检查
+
+提议事实前，验证以下四个条件：
+1. 信息已被验证（不是假设）
+2. 未来的会话会反复需要它
+3. 不会很快过时
+4. 不存在等价的事实
+
+## 信息路由
+
+| 信息类型 | 工具 | 示例 |
+|---|---|---|
+| 长期事实/约束/教训 | `mneme_propose_fact` | "数据库使用事件溯源" |
+| 新任务或进度更新 | `mneme_create` 或 `mneme_update` | "需要添加限流" |
+| 只跟当前相关 | 保留在上下文中 | "这个函数在第 47 行返回 null" |
 
 ## 关键规则
 
-- 不要跳过以上步骤直接开始写代码
-- 完成一个里程碑后：`mneme update <id> --notes="完成了什么"`
-- 完成一个任务后：`mneme close <id> --reason="摘要"`
-- 压缩前：将所有确认的结论持久化到 Beads
-- 不要使用 `bd edit`（会打开交互式编辑器）—— 使用 `mneme update` 加参数
+- 不要使用 `bd edit`（会导致非交互式 Agent 挂起）—— 使用 `mneme_update` 代替
+- 所有任务跟踪通过 mneme 工具进行 —— 不要用 markdown TODO
+- 结束前：关闭或更新任务，推送到远程
+- 压缩前：将所有状态和结论持久化到 beads

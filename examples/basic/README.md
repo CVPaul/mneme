@@ -8,16 +8,21 @@ The scenario: you're building a REST API for a todo application using Node.js, E
 
 ```
 todo-api/
-├── AGENTS.md                              # Agent rules (scaffolded by mneme init)
+├── opencode.json                              # OpenCode config (plugin + model)
+├── AGENTS.md                                  # Agent rules (scaffolded by mneme init)
 ├── .ledger/
 │   └── facts/
-│       ├── architecture.md                # Tech stack, API design decisions
-│       ├── invariants.md                  # Hard constraints the agent must follow
-│       ├── performance_rules.md           # Performance lessons learned
-│       └── pitfalls.md                    # Known gotchas discovered during development
+│       ├── architecture.md                    # Tech stack, API design decisions
+│       ├── invariants.md                      # Hard constraints the agent must follow
+│       ├── performance_rules.md               # Performance lessons learned
+│       └── pitfalls.md                        # Known gotchas discovered during development
 ├── .opencode/
-│   └── prompt.md                          # Session startup instructions for the agent
-├── .beads/                                # Task database (not shown — managed by bd)
+│   ├── prompt.md                              # Session startup instructions for the agent
+│   ├── plugins/
+│   │   └── mneme.ts                           # mneme plugin (12 tools + compaction hook)
+│   ├── oh-my-opencode.jsonc                   # Agent/model routing configuration
+│   └── package.json                           # Plugin dependencies
+├── .beads/                                    # Task database (not shown — managed by bd)
 └── .gitignore
 ```
 
@@ -41,7 +46,15 @@ Non-obvious traps discovered during development. The Express `async` error handl
 
 ### `.opencode/prompt.md`
 
-The session startup prompt. This tells the agent to read facts first, then check tasks, then pick one task to focus on. It's the entry point that makes the three-layer architecture work.
+The session startup prompt. This tells the agent to use mneme tools to read facts first, then check tasks, then pick one task to focus on. It's the entry point that makes the three-layer architecture work.
+
+### `.opencode/plugins/mneme.ts`
+
+The mneme plugin for OpenCode. Exposes 12 tools (task management, fact access, project status) and a compaction hook that preserves mneme state across context compaction. This file is identical across all mneme-managed projects.
+
+### `opencode.json`
+
+OpenCode configuration that declares the oh-my-opencode plugin and sets the default model. This enables the multi-agent system (Sisyphus, Hephaestus, Prometheus, Atlas, etc.) inside the OpenCode TUI.
 
 ## Try it yourself
 

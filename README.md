@@ -51,36 +51,50 @@ mneme
 `mneme init` sets up everything in one command:
 1. Installs [Dolt](https://www.dolthub.com/repositories) and [bd](https://github.com/steveyegge/beads) if missing
 2. Initializes a git repo (if needed)
-3. Creates the three-layer structure (`.ledger/`, `.beads/`, `.opencode/`, `AGENTS.md`)
-4. Starts the task database
+3. Creates the three-layer structure (`.ledger/`, `.beads/`, `AGENTS.md`)
+4. Scaffolds OpenCode integration files (`opencode.json`, `.opencode/plugins/mneme.ts`, `.opencode/oh-my-opencode.jsonc`)
+5. Installs plugin dependencies (oh-my-opencode, mneme plugin)
+6. Starts the task database
 
 That's it. Run `mneme` to launch the agent, or `mneme doctor` to verify your setup.
 
 ## How it works
 
+### Agent orchestration
+
+mneme uses [oh-my-opencode](https://github.com/nickarora/oh-my-opencode) as the agent orchestration layer inside OpenCode. This provides a multi-agent system with specialized agents:
+
+- **Sisyphus** — primary coding agent (claude-opus-4.6)
+- **Hephaestus** — deep analysis and architecture tasks
+- **Prometheus** — fast planning and quick tasks (gpt-4.1)
+- **Atlas** — large-scale refactoring
+
+The mneme plugin (`.opencode/plugins/mneme.ts`) exposes 12 tools to these agents, giving them direct access to the Ledger and Beads layers.
+
 ### Every session starts the same way
 
-The agent reads facts, checks tasks, picks one to focus on:
+The agent reads facts, checks tasks, picks one to focus on — all through mneme tools:
 
-```bash
-mneme facts              # Read long-term facts (agent does this automatically)
-mneme ready              # See which tasks have no blockers
-mneme update <id> --status=in_progress   # Claim a task
+```
+mneme_facts         → Read long-term facts (agent does this automatically)
+mneme_ready         → See which tasks have no blockers
+mneme_update        → Claim a task (set status to in_progress)
 ```
 
 ### During work
 
 The agent records progress and creates sub-tasks as it goes:
 
-```bash
-mneme update <id> --notes="Implemented JWT signing, discovered need for refresh tokens"
-mneme create --title="Add refresh token support" --type=task -p 2
+```
+mneme_update        → Record progress notes on the current task
+mneme_create        → Create a new sub-task
+mneme_dep           → Link dependencies between tasks
 ```
 
 ### When done
 
-```bash
-mneme close <id> --reason="JWT auth complete with signing and verification"
+```
+mneme_close         → Close a completed task with a summary
 ```
 
 ### New facts require approval
@@ -88,30 +102,29 @@ mneme close <id> --reason="JWT auth complete with signing and verification"
 Agents can propose facts, but only humans can approve them:
 
 ```bash
-mneme propose --file=architecture --content="Auth uses JWT with RS256" --reason="Decided after evaluating HMAC vs RSA"
-mneme review                    # Human reviews pending proposals
+# Agent proposes via mneme_propose_fact tool
+# Human reviews on the command line:
+mneme review                    # List pending proposals
 mneme review <id> --approve     # Write to facts
 ```
 
 ### Autonomous mode
 
-`mneme auto` runs a supervisor loop that picks tasks and drives the agent continuously:
+`mneme auto` launches OpenCode with the full multi-agent system and mneme tools:
 
 ```bash
-mneme auto                      # Auto-pick from ready tasks
-mneme auto "Build auth module"  # Start with a specific goal
+mneme auto                      # Launch OpenCode TUI with mneme tools
+mneme auto "Build auth module"  # Start with a specific goal (headless)
 ```
-
-Type feedback anytime while it runs. `/status` to check progress, `/quit` to stop.
 
 ## CLI reference
 
 ```
-mneme                           Launch agent (OpenCode TUI)
-mneme init                      Initialize mneme in current directory
+mneme                           Launch OpenCode TUI
+mneme init [cn]                 Initialize mneme (cn = Chinese templates)
 mneme doctor                    Check dependencies and project health
 mneme status                    Three-layer memory dashboard
-mneme auto [goal]               Autonomous agent supervisor
+mneme auto [goal]               Launch OpenCode with mneme tools
 
 mneme facts [name] [--stats]    View long-term facts
 mneme propose --file=... ...    Propose a new fact
@@ -126,8 +139,8 @@ mneme close <id> [--reason=..]  Close a task
 mneme blocked                   Show blocked tasks
 mneme dep add <child> <parent>  Add dependency
 
+mneme up/down/ps/restart        Manage servers (dolt + opencode)
 mneme run [message]             Run agent non-interactively
-mneme serve                     Start headless server
 mneme compact                   Pre-compaction persistence check
 mneme version                   Print version
 ```
@@ -137,13 +150,18 @@ mneme version                   Print version
 After `mneme init`, your project contains:
 
 ```
+opencode.json                    OpenCode config (plugin + model)
+AGENTS.md                        Agent behavior rules and routing logic
 .ledger/
-  facts/                 Long-term facts (architecture, constraints, pitfalls)
-  proposals/             Pending fact proposals awaiting human review
-.beads/                  Task database (managed by bd, backed by Dolt)
+  facts/                         Long-term facts (architecture, constraints, pitfalls)
+  proposals/                     Pending fact proposals awaiting human review
+.beads/                          Task database (managed by bd, backed by Dolt)
 .opencode/
-  prompt.md              Session startup prompt for the agent
-AGENTS.md                Agent behavior rules and routing logic
+  prompt.md                      Session startup prompt for the agent
+  plugins/
+    mneme.ts                     mneme plugin — exposes 12 tools to agents
+  oh-my-opencode.jsonc           Agent/model routing configuration
+  package.json                   Plugin dependencies
 ```
 
 ## What mneme is
@@ -154,7 +172,7 @@ AGENTS.md                Agent behavior rules and routing logic
 
 ## What mneme is not
 
-- Not a new AI model or agent — it wraps [OpenCode](https://opencode.ai)
+- Not a new AI model or agent — it wraps [OpenCode](https://opencode.ai) with [oh-my-opencode](https://github.com/nickarora/oh-my-opencode)
 - Not a RAG system — facts are curated, not retrieved from embeddings
 - Not a framework — it's a single CLI with zero npm dependencies
 - Not opinionated about your code — it only manages agent memory

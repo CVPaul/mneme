@@ -12,7 +12,7 @@ The architecture is built around four goals:
 
 3. **Keep humans in the loop.** Agents should not unilaterally rewrite long-term project knowledge. Facts require human approval. Tasks are transparent and inspectable.
 
-4. **Stay simple.** No databases to configure, no services to run, no SDKs to integrate. One CLI, zero npm dependencies, plain files where possible.
+4. **Stay simple.** One CLI, zero npm dependencies. External tools (Dolt, bd, OpenCode) are installed and managed automatically by `mneme init`.
 
 ## Three layers
 
@@ -43,12 +43,12 @@ Information flows downward at session start (agent reads facts, then tasks) and 
 - Known pitfalls ("The bd edit command opens an interactive editor — don't use it from agents")
 
 **Write rules:**
-- Agents cannot write directly. They propose changes via `mneme propose`.
+- Agents cannot write directly. They propose changes via the `mneme_propose_fact` tool (or `mneme propose` CLI).
 - A human reviews and approves via `mneme review`.
 - Only verified, long-term facts belong here. No hypotheses, no temporary conclusions.
 
 **Read rules:**
-- Every session starts by reading all facts files.
+- Every session starts by reading all facts files (via the `mneme_facts` tool).
 - Facts have higher priority than conversation history or agent reasoning.
 - If an agent finds a fact that seems wrong, it must raise the contradiction rather than ignore or override the fact.
 
@@ -67,13 +67,13 @@ Information flows downward at session start (agent reads facts, then tasks) and 
 - Notes recording progress at each stage
 
 **Write rules:**
-- Agents claim tasks (`mneme update <id> --status=in_progress`) before starting work.
-- Progress is recorded in notes (`mneme update <id> --notes="..."`) after each milestone.
-- New sub-tasks are created as they're discovered (`mneme create`).
-- Completed tasks are closed with a reason (`mneme close <id> --reason="..."`).
+- Agents claim tasks (`mneme_update` tool or `mneme update` CLI) before starting work.
+- Progress is recorded in notes (`mneme_update` with notes) after each milestone.
+- New sub-tasks are created as they're discovered (`mneme_create`).
+- Completed tasks are closed with a reason (`mneme_close`).
 
 **Read rules:**
-- Every session checks `mneme ready` (unblocked tasks) and `mneme list --status=in_progress` (current work).
+- Every session checks `mneme_ready` (unblocked tasks) and `mneme_list` (current work).
 - The agent picks one task as its focus for the session. Not two. Not five. One.
 
 **Why Dolt?** Hash-based IDs prevent merge conflicts when multiple agents or branches create tasks concurrently. Dolt's cell-level merge means task updates from parallel sessions don't collide. The dependency graph lets agents reason about what's actionable without human intervention.
@@ -81,6 +81,22 @@ Information flows downward at session start (agent reads facts, then tasks) and 
 ### Layer 3: OpenCode (Execution)
 
 **Purpose:** Execute the current task. Read code, edit files, run commands.
+
+**Runtime:** [OpenCode](https://opencode.ai) with [oh-my-opencode](https://github.com/nickarora/oh-my-opencode) for multi-agent orchestration.
+
+**Agent system:** oh-my-opencode provides specialized agents that the user can switch between:
+- **Sisyphus (Ultraworker)** — primary coding agent, handles most tasks
+- **Hephaestus** — deep analysis, architecture, complex debugging
+- **Prometheus** — fast planning, quick tasks, scaffolding
+- **Atlas** — large-scale refactoring across many files
+- **Oracle, Metis, Momus** — specialized roles (review, strategy, critique)
+
+All agents access the Ledger and Beads layers through 12 mneme tools registered as an OpenCode plugin:
+- Beads tools: `mneme_ready`, `mneme_list`, `mneme_show`, `mneme_create`, `mneme_update`, `mneme_close`, `mneme_blocked`, `mneme_dep`
+- Ledger tools: `mneme_facts`, `mneme_propose_fact`
+- Status tools: `mneme_status`, `mneme_doctor`
+
+A compaction hook automatically injects mneme task state and facts overview into the compaction context, so critical information survives context compaction.
 
 **Storage:** None. Lives entirely in the agent's context window.
 
@@ -151,32 +167,35 @@ Examples:
 
 ```
 Session start:
-  Agent ──read──→ Ledger facts         (establish long-term context)
-  Agent ──read──→ Beads via mneme ready   (find actionable work)
-  Agent ──claim──→ one task               (single focus per session)
+  Agent ──read──→ Ledger facts (via mneme_facts tool)
+  Agent ──read──→ Beads (via mneme_ready / mneme_list tools)
+  Agent ──claim──→ one task (via mneme_update tool)
 
 During execution:
   Agent ──work──→ code changes
-  Agent ──write──→ Beads notes            (record progress)
-  Agent ──create──→ new Beads tasks       (discovered sub-work)
+  Agent ──write──→ Beads notes (via mneme_update tool)
+  Agent ──create──→ new Beads tasks (via mneme_create tool)
 
 Before compaction:
-  Agent ──flush──→ Beads notes            (persist confirmed conclusions)
-  Agent ──propose──→ Ledger             (new facts, pending human review)
+  Agent ──flush──→ Beads notes (via mneme_update tool)
+  Agent ──propose──→ Ledger (via mneme_propose_fact tool, pending human review)
+  Compaction hook ──inject──→ mneme state into compaction context
 
 Session end:
-  Agent ──close──→ Beads task             (if complete)
-  Agent ──push──→ git                     (code + facts + task state)
+  Agent ──close──→ Beads task (via mneme_close tool)
+  Agent ──push──→ git (code + facts + task state)
 ```
 
 ## Technical dependencies
 
-mneme is a Node.js CLI with zero npm dependencies. It orchestrates three external tools:
+mneme is a Node.js CLI with zero npm dependencies. It orchestrates these external tools:
 
 | Component | Role | Storage |
 |---|---|---|
 | **mneme** | Unified CLI entry point | — |
 | **[OpenCode](https://opencode.ai)** | AI agent runtime | Context window (ephemeral) |
+| **[oh-my-opencode](https://github.com/nickarora/oh-my-opencode)** | Multi-agent orchestration (OpenCode plugin) | `.opencode/` config |
+| **mneme plugin** | Exposes Ledger + Beads as OpenCode tools | `.opencode/plugins/mneme.ts` |
 | **[bd (beads)](https://github.com/steveyegge/beads)** | Task tracker | `.beads/` (Dolt database) |
 | **[Dolt](https://www.dolthub.com/)** | Version-controlled SQL database | `.beads/dolt/` |
 | **Git** | Version control | `.git/` |
@@ -186,18 +205,24 @@ Ledger is not a separate tool — it's a convention: Markdown files in `.ledger/
 ## File layout
 
 ```
+opencode.json                            OpenCode config (declares plugins, sets model)
+AGENTS.md                                Agent behavior rules and routing logic
 .ledger/
   facts/
-    architecture.md          Verified architecture decisions
-    invariants.md            Constraints that must not be violated
-    performance_rules.md     Performance boundaries
-    pitfalls.md              Known traps and lessons learned
+    architecture.md                      Verified architecture decisions
+    invariants.md                        Constraints that must not be violated
+    performance_rules.md                 Performance boundaries
+    pitfalls.md                          Known traps and lessons learned
   proposals/
-    <timestamp>-<hash>.json  Pending fact proposals awaiting review
+    <timestamp>-<hash>.json              Pending fact proposals awaiting review
 .beads/
-  config.yaml                Beads configuration
-  dolt/                      Dolt database (gitignored)
+  config.yaml                            Beads configuration
+  dolt/                                  Dolt database (gitignored)
 .opencode/
-  prompt.md                  Session startup instructions for the agent
-AGENTS.md                    Agent behavior rules and routing logic
+  prompt.md                              Session startup instructions for the agent
+  plugins/
+    mneme.ts                             mneme plugin (12 tools + compaction hook)
+  oh-my-opencode.jsonc                   Agent/model routing configuration
+  package.json                           Plugin dependencies (@opencode-ai/plugin, oh-my-opencode)
+  node_modules/                          Installed plugins (gitignored)
 ```

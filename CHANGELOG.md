@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.1.15
+
+- **`mneme init` now scaffolds full opencode integration** — running `mneme init` in any project now generates all files needed for the oh-my-opencode multi-agent system:
+  - `opencode.json` — OpenCode config with plugin declaration and default model (claude-opus-4.6)
+  - `.opencode/plugins/mneme.ts` — mneme plugin exposing 12 tools + compaction hook
+  - `.opencode/oh-my-opencode.jsonc` — agent/model routing for GitHub Copilot plan
+  - `.opencode/package.json` — plugin dependencies (@opencode-ai/plugin, oh-my-opencode)
+  - `.opencode/.gitignore` — ignores node_modules and lock files
+  - Automatically runs `npm install` (or `bun install`) in `.opencode/` to install plugin dependencies
+  - Uses `--registry=https://registry.npmjs.org` for npm to avoid issues with local mirrors
+- **Updated all templates** — `opencode-prompt.md` (en/cn) now uses tool-based instructions (`mneme_facts`, `mneme_ready`, etc.) instead of CLI commands
+- **Updated documentation for new architecture**:
+  - README.md — new project structure, agent orchestration section, updated CLI reference
+  - ARCHITECTURE.md — added oh-my-opencode multi-agent details, mneme plugin, compaction hook, updated file layout and technical dependencies
+  - `.ledger/facts/architecture.md` — added agent orchestration layer, updated directory structure
+  - `examples/basic/` — added opencode.json, oh-my-opencode.jsonc, package.json, plugin placeholder; updated prompt.md and README.md
+
 ## v0.1.14
 
 - **Architecture: oh-my-opencode + mneme plugin** — replaced the custom daemon+TUI agent orchestration with oh-my-opencode's built-in multi-agent system

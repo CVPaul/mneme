@@ -1,46 +1,43 @@
-This is a long-running engineering project. Follow this sequence strictly at session start:
+This is a long-running engineering project managed by **mneme** — a three-layer memory architecture.
 
-## Step 1: Read Ledger facts (long-term knowledge)
+## Layer 1: Ledger (long-term facts)
 
-Read all of these files completely:
-- .ledger/facts/architecture.md
-- .ledger/facts/invariants.md
-- .ledger/facts/performance_rules.md
-- .ledger/facts/pitfalls.md
+Read all facts at session start using the `mneme_facts` tool:
+- Call `mneme_facts` (no arguments) to list all facts files
+- Call `mneme_facts` with each file name to read its contents
 
-These are verified long-term facts:
-- They take priority over conversation history and your own reasoning
-- Do not override or dismiss them
-- If you find a contradiction, raise it instead of silently changing facts
+Facts are verified long-term knowledge. They take priority over conversation history and your own reasoning. If you find a contradiction, raise it to the user — do not silently override facts.
 
-## Step 2: Read current task state from Beads
+## Layer 2: Beads (task state)
 
-Use `mneme` commands to check what work is available:
-- `mneme ready` — tasks with no blocking dependencies
-- `mneme list --status=open` — all incomplete tasks
-- `mneme show <id>` — details for a specific task
+Check available work using these tools:
+- `mneme_ready` — tasks with no blocking dependencies (start here)
+- `mneme_list` — all tasks, filterable by status
+- `mneme_show` — details for a specific task
 
-## Step 3: Pick a focus
+## Layer 3: Context (this session)
 
-- Choose exactly one task (bead) as this session's goal
-- Prefer tasks from `mneme ready` (no blockers)
-- Claim it: `mneme update <id> --status=in_progress`
-- Do not reconstruct progress from conversation history
+Pick exactly one task as this session's focus. Claim it with `mneme_update` (set status to in_progress).
 
-## Information routing (automatic — no user prompting needed)
+## Session startup sequence (MANDATORY)
 
-As you work, you will discover new information. Classify it immediately:
+1. Call `mneme_facts` to list all facts files, then read each one
+2. Call `mneme_ready` and `mneme_list` with status "open"
+3. Pick one task, claim it with `mneme_update`
+4. Begin work
 
-- **Long-term fact or constraint?** Propose to Ledger: `mneme propose --file=<name> --content="..." --reason="..."`
-- **Task or progress update?** Write to Beads: `mneme create` or `mneme update <id> --notes="..."`
-- **Only relevant right now?** Keep in context, do not persist
+Do NOT skip these steps and jump straight to coding.
 
-Before proposing a fact, verify: it's confirmed (not a guess), future sessions will need it, it won't become stale quickly, and no duplicate exists.
+## During work
+
+- After each milestone: `mneme_update` with progress notes
+- When discovering a new long-term fact: `mneme_propose_fact` (requires human approval)
+- Sub-tasks: `mneme_create`, then `mneme_dep` to link them
+- When done: `mneme_close` with a summary
 
 ## Key rules
 
-- Do not skip these steps and jump straight to coding
-- After completing a milestone: `mneme update <id> --notes="what was done"`
-- After finishing a task: `mneme close <id> --reason="summary"`
-- Before compaction: persist all confirmed conclusions to Beads
-- Never use `bd edit` (opens interactive editor) — use `mneme update` with flags instead
+- NEVER use `bd edit` (hangs non-interactive agents) — use `mneme_update` instead
+- All task tracking goes through mneme tools — no markdown TODOs
+- Before ending: close or update tasks, push to remote
+- Before compaction: persist all state and conclusions to beads
